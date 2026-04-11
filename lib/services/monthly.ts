@@ -1,0 +1,235 @@
+import { Prisma, RequirementTargetType } from "@prisma/client";
+
+import { db } from "@/lib/db";
+import { monthKey } from "@/lib/time";
+
+export type MonthlyTx = Prisma.TransactionClient;
+
+type RequiredEntityStatus = {
+  id: string;
+  name: string;
+  required: boolean;
+};
+
+export type MonthlySnapshotEntity = RequiredEntityStatus & {
+  submitted: boolean;
+  submissionId?: string;
+  technicianName?: string;
+  submittedAt?: Date;
+  notes?: string | null;
+  problemsReported?: string | null;
+  missingDamagedNotes?: string | null;
+  counts?: Array<{ item: string; quantity: number }>;
+};
+
+export async function ensureMonthlyCycle(tx: MonthlyTx, month: number, year: number) {
+  return tx.monthlyCycle.upsert({
+    where: { month_year: { month, year } },
+    update: {},
+    create: { month, year }
+  });
+}
+
+export async function getRequiredTargetsForMonth(tx: MonthlyTx, month: number, year: number) {
+  const [offices, trucks, overrides] = await Promise.all([
+    tx.office.findMany({
+      where: { isActive: true },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true, requiredByDefault: true }
+    }),
+    tx.truck.findMany({
+      where: { isActive: true },
+      orderBy: [{ office: { name: "asc" } }, { licensePlate: "asc" }],
+      select: {
+        id: true,
+        name: true,
+        licensePlate: true,
+        requiredByDefault: true,
+        office: { select: { name: true } }
+      }
+    }),
+    tx.monthlyRequirementOverride.findMany({
+      where: { month, year }
+    })
+  ]);
+
+  const officeOverrideMap = new Map(
+    overrides
+      .filter((override) => override.targetType === RequirementTargetType.OFFICE && override.officeId)
+      .map((override) => [override.officeId as string, override.isRequired])
+  );
+
+  const truckOverrideMap = new Map(
+    overrides
+      .filter((override) => override.targetType === RequirementTargetType.TRUCK && override.truckId)
+      .map((override) => [override.truckId as string, override.isRequired])
+  );
+
+  const officeTargets: RequiredEntityStatus[] = offices.map((office) => ({
+    id: office.id,
+    name: office.name,
+    required: officeOverrideMap.get(office.id) ?? office.requiredByDefault
+  }));
+
+  const truckTargets: RequiredEntityStatus[] = trucks.map((truck) => ({
+    id: truck.id,
+    name: `${truck.name} - ${truck.licensePlate}${truck.office?.name ? ` (${truck.office.name})` : ""}`,
+    required: truckOverrideMap.get(truck.id) ?? truck.requiredByDefault
+  }));
+
+  return { officeTargets, truckTargets };
+}
+
+export async function recalculateMonthlyCycle(tx: MonthlyTx, month: number, year: number) {
+  const cycle = await ensureMonthlyCycle(tx, month, year);
+  const { officeTargets, truckTargets } = await getRequiredTargetsForMonth(tx, month, year);
+
+  const requiredOfficeIds = officeTargets.filter((office) => office.required).map((office) => office.id);
+  const requiredTruckIds = truckTargets.filter((truck) => truck.required).map((truck) => truck.id);
+
+  const [officeSubmitted, truckSubmitted] = await Promise.all([
+    tx.officeInventorySubmission.findMany({
+      where: {
+        month,
+        year,
+        officeId: { in: requiredOfficeIds.length ? requiredOfficeIds : ["___none___"] }
+      },
+      select: { officeId: true }
+    }),
+    tx.truckInventorySubmission.findMany({
+      where: {
+        month,
+        year,
+        truckId: { in: requiredTruckIds.length ? requiredTruckIds : ["___none___"] }
+      },
+      select: { truckId: true }
+    })
+  ]);
+
+  const completedOfficeCount = new Set(officeSubmitted.map((entry) => entry.officeId)).size;
+  const completedTruckCount = new Set(truckSubmitted.map((entry) => entry.truckId)).size;
+
+  const requiredOfficeCount = requiredOfficeIds.length;
+  const requiredTruckCount = requiredTruckIds.length;
+
+  const isComplete =
+    completedOfficeCount >= requiredOfficeCount &&
+    completedTruckCount >= requiredTruckCount &&
+    (requiredOfficeCount > 0 || requiredTruckCount > 0);
+
+  const updatedCycle = await tx.monthlyCycle.update({
+    where: { id: cycle.id },
+    data: {
+      requiredOfficeCount,
+      requiredTruckCount,
+      completedOfficeCount,
+      completedTruckCount,
+      isComplete
+    }
+  });
+
+  return {
+    cycle: updatedCycle,
+    requiredOfficeIds,
+    requiredTruckIds,
+    completedOfficeCount,
+    completedTruckCount,
+    isComplete
+  };
+}
+
+export async function getMonthlySnapshot(month: number, year: number) {
+  const [cycle, entities] = await Promise.all([
+    db.monthlyCycle.findUnique({ where: { month_year: { month, year } } }),
+    db.$transaction((tx) => getRequiredTargetsForMonth(tx, month, year))
+  ]);
+
+  const [officeSubmissions, truckSubmissions] = await Promise.all([
+    db.officeInventorySubmission.findMany({
+      where: { month, year },
+      include: {
+        office: true,
+        counts: { include: { inventoryItem: true } }
+      }
+    }),
+    db.truckInventorySubmission.findMany({
+      where: { month, year },
+      include: {
+        truck: true,
+        counts: { include: { inventoryItem: true } }
+      }
+    })
+  ]);
+
+  const officeSubmissionMap = new Map(officeSubmissions.map((entry) => [entry.officeId, entry]));
+  const truckSubmissionMap = new Map(truckSubmissions.map((entry) => [entry.truckId, entry]));
+
+  const offices: MonthlySnapshotEntity[] = entities.officeTargets.map((office) => {
+    const submission = officeSubmissionMap.get(office.id);
+    return {
+      ...office,
+      submitted: Boolean(submission),
+      submissionId: submission?.id,
+      technicianName: submission?.technicianName,
+      submittedAt: submission?.submittedAt,
+      notes: submission?.notes,
+      problemsReported: submission?.problemsReported,
+      missingDamagedNotes: submission?.missingDamagedNotes,
+      counts: submission?.counts
+        .slice()
+        .sort((a, b) => a.inventoryItem.sortOrder - b.inventoryItem.sortOrder)
+        .map((count) => ({ item: count.inventoryItem.name, quantity: count.quantity }))
+    };
+  });
+
+  const trucks: MonthlySnapshotEntity[] = entities.truckTargets.map((truck) => {
+    const submission = truckSubmissionMap.get(truck.id);
+    return {
+      ...truck,
+      submitted: Boolean(submission),
+      submissionId: submission?.id,
+      technicianName: submission?.technicianName,
+      submittedAt: submission?.submittedAt,
+      notes: submission?.notes,
+      problemsReported: submission?.problemsReported,
+      missingDamagedNotes: submission?.missingDamagedNotes,
+      counts: submission?.counts
+        .slice()
+        .sort((a, b) => a.inventoryItem.sortOrder - b.inventoryItem.sortOrder)
+        .map((count) => ({ item: count.inventoryItem.name, quantity: count.quantity }))
+    };
+  });
+
+  const requiredOffices = offices.filter((office) => office.required);
+  const requiredTrucks = trucks.filter((truck) => truck.required);
+
+  const completedOfficeCount = requiredOffices.filter((office) => office.submitted).length;
+  const completedTruckCount = requiredTrucks.filter((truck) => truck.submitted).length;
+
+  const requiredOfficeCount = requiredOffices.length;
+  const requiredTruckCount = requiredTrucks.length;
+
+  const totalRequired = requiredOfficeCount + requiredTruckCount;
+  const totalCompleted = completedOfficeCount + completedTruckCount;
+  const percentComplete = totalRequired === 0 ? 100 : Math.round((totalCompleted / totalRequired) * 100);
+  const isComplete = totalRequired > 0 && totalCompleted >= totalRequired;
+
+  return {
+    month,
+    year,
+    monthKey: monthKey(month, year),
+    cycle,
+    offices,
+    trucks,
+    requiredOfficeCount,
+    requiredTruckCount,
+    completedOfficeCount,
+    completedTruckCount,
+    totalRequired,
+    totalCompleted,
+    percentComplete,
+    isComplete,
+    missingOffices: requiredOffices.filter((office) => !office.submitted),
+    missingTrucks: requiredTrucks.filter((truck) => !truck.submitted)
+  };
+}

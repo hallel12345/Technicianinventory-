@@ -1,0 +1,327 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum Role {
+  TECHNICIAN
+  ADMIN
+}
+
+enum InventoryScope {
+  OFFICE
+  TRUCK
+  BOTH
+}
+
+enum SubmissionStatus {
+  SUBMITTED
+  EDITED
+  UNLOCKED
+  RESUBMITTED
+}
+
+enum RequirementTargetType {
+  OFFICE
+  TRUCK
+}
+
+enum EmailLogType {
+  AUTO_FINAL
+  MANUAL_RESEND
+}
+
+enum EmailStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+enum AuditAction {
+  SUBMISSION_EDITED
+  SUBMISSION_UNLOCKED
+  TRUCK_ASSIGNMENT_CHANGED
+  OFFICE_CREATED
+  OFFICE_UPDATED
+  OFFICE_ARCHIVED
+  TRUCK_CREATED
+  TRUCK_UPDATED
+  TRUCK_ARCHIVED
+  INVENTORY_ITEM_CREATED
+  INVENTORY_ITEM_UPDATED
+  INVENTORY_ITEM_ARCHIVED
+  MONTHLY_EMAIL_RESEND
+  TECHNICIAN_CREATED
+  TECHNICIAN_DEACTIVATED
+  MONTH_LOCKED
+  MONTH_UNLOCKED
+  REQUIRED_STATUS_CHANGED
+  BRANDING_UPDATED
+  USER_UPDATED
+}
+
+model User {
+  id                   String      @id @default(cuid())
+  name                 String
+  email                String?     @unique
+  userCode             String?     @unique
+  role                 Role
+  passwordHash         String?
+  pinHash              String?
+  isActive             Boolean     @default(true)
+  failedLoginAttempts  Int         @default(0)
+  lockedUntil          DateTime?
+  lastLoginAt          DateTime?
+  officeId             String?
+  office               Office?     @relation(fields: [officeId], references: [id])
+  uploadedFiles        FileUpload[]
+  auditLogs            AuditLog[]  @relation("AuditActor")
+  createdAt            DateTime    @default(now())
+  updatedAt            DateTime    @updatedAt
+
+  @@index([role, isActive])
+}
+
+model Office {
+  id               String                        @id @default(cuid())
+  name             String                        @unique
+  isActive         Boolean                       @default(true)
+  requiredByDefault Boolean                      @default(true)
+  trucks           Truck[]
+  users            User[]
+  officeSubmissions OfficeInventorySubmission[]
+  monthlyOverrides MonthlyRequirementOverride[]  @relation("OverrideOffice")
+  createdAt        DateTime                      @default(now())
+  updatedAt        DateTime                      @updatedAt
+
+  @@index([isActive])
+}
+
+model Truck {
+  id               String                        @id @default(cuid())
+  name             String
+  licensePlate     String                        @unique
+  isActive         Boolean                       @default(true)
+  requiredByDefault Boolean                      @default(true)
+  officeId         String?
+  office           Office?                       @relation(fields: [officeId], references: [id])
+  truckSubmissions TruckInventorySubmission[]
+  monthlyOverrides MonthlyRequirementOverride[]  @relation("OverrideTruck")
+  createdAt        DateTime                      @default(now())
+  updatedAt        DateTime                      @updatedAt
+
+  @@index([officeId, isActive])
+}
+
+model InventoryItem {
+  id          String               @id @default(cuid())
+  name        String               @unique
+  scope       InventoryScope       @default(BOTH)
+  isActive    Boolean              @default(true)
+  sortOrder   Int                  @default(0)
+  officeCounts OfficeInventoryCount[]
+  truckCounts TruckInventoryCount[]
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+
+  @@index([isActive, scope])
+}
+
+model MonthlyCycle {
+  id                  String                        @id @default(cuid())
+  month               Int
+  year                Int
+  isLocked            Boolean                       @default(false)
+  requiredOfficeCount Int                           @default(0)
+  requiredTruckCount  Int                           @default(0)
+  completedOfficeCount Int                          @default(0)
+  completedTruckCount Int                           @default(0)
+  isComplete          Boolean                       @default(false)
+  autoEmailSent       Boolean                       @default(false)
+  autoEmailSentAt     DateTime?
+  officeSubmissions   OfficeInventorySubmission[]
+  truckSubmissions    TruckInventorySubmission[]
+  requirementOverrides MonthlyRequirementOverride[]
+  emailLogs           EmailLog[]
+  createdAt           DateTime                      @default(now())
+  updatedAt           DateTime                      @updatedAt
+
+  @@unique([month, year])
+  @@index([year, month])
+}
+
+model OfficeInventorySubmission {
+  id                   String                 @id @default(cuid())
+  month                Int
+  year                 Int
+  officeId             String
+  monthlyCycleId       String
+  technicianName       String
+  notes                String?
+  problemsReported     String?
+  missingDamagedNotes  String?
+  status               SubmissionStatus       @default(SUBMITTED)
+  isManuallyUnlocked   Boolean                @default(false)
+  submittedAt          DateTime               @default(now())
+  createdById          String
+  updatedById          String?
+  office               Office                 @relation(fields: [officeId], references: [id])
+  monthlyCycle         MonthlyCycle           @relation(fields: [monthlyCycleId], references: [id])
+  counts               OfficeInventoryCount[]
+  files                FileUpload[]           @relation("OfficeSubmissionFiles")
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime               @updatedAt
+
+  @@unique([officeId, month, year])
+  @@index([month, year])
+  @@index([createdById])
+}
+
+model TruckInventorySubmission {
+  id                   String                 @id @default(cuid())
+  month                Int
+  year                 Int
+  truckId              String
+  monthlyCycleId       String
+  technicianName       String
+  notes                String?
+  problemsReported     String?
+  missingDamagedNotes  String?
+  status               SubmissionStatus       @default(SUBMITTED)
+  isManuallyUnlocked   Boolean                @default(false)
+  submittedAt          DateTime               @default(now())
+  createdById          String
+  updatedById          String?
+  truck                Truck                  @relation(fields: [truckId], references: [id])
+  monthlyCycle         MonthlyCycle           @relation(fields: [monthlyCycleId], references: [id])
+  counts               TruckInventoryCount[]
+  files                FileUpload[]           @relation("TruckSubmissionFiles")
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime               @updatedAt
+
+  @@unique([truckId, month, year])
+  @@index([month, year])
+  @@index([createdById])
+}
+
+model OfficeInventoryCount {
+  id              String                  @id @default(cuid())
+  submissionId    String
+  inventoryItemId String
+  quantity        Int                     @default(0)
+  submission      OfficeInventorySubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  inventoryItem   InventoryItem           @relation(fields: [inventoryItemId], references: [id])
+
+  @@unique([submissionId, inventoryItemId])
+}
+
+model TruckInventoryCount {
+  id              String                 @id @default(cuid())
+  submissionId    String
+  inventoryItemId String
+  quantity        Int                    @default(0)
+  submission      TruckInventorySubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  inventoryItem   InventoryItem          @relation(fields: [inventoryItemId], references: [id])
+
+  @@unique([submissionId, inventoryItemId])
+}
+
+model MonthlyRequirementOverride {
+  id             String                 @id @default(cuid())
+  month          Int
+  year           Int
+  targetType     RequirementTargetType
+  isRequired     Boolean
+  reason         String?
+  officeId       String?
+  truckId        String?
+  monthlyCycleId String?
+  createdById    String?
+  office         Office?                @relation("OverrideOffice", fields: [officeId], references: [id])
+  truck          Truck?                 @relation("OverrideTruck", fields: [truckId], references: [id])
+  monthlyCycle   MonthlyCycle?          @relation(fields: [monthlyCycleId], references: [id])
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
+
+  @@unique([month, year, targetType, officeId])
+  @@unique([month, year, targetType, truckId])
+  @@index([month, year, targetType])
+}
+
+model EmailLog {
+  id                     String      @id @default(cuid())
+  month                  Int
+  year                   Int
+  monthlyCycleId         String
+  type                   EmailLogType
+  status                 EmailStatus @default(PENDING)
+  toEmail                String
+  subject                String
+  htmlBody               String
+  textBody               String
+  errorMessage           String?
+  sentAt                 DateTime?
+  autoKey                String?     @unique
+  triggeredBySubmissionId String?
+  triggeredByUserId      String?
+  monthlyCycle           MonthlyCycle @relation(fields: [monthlyCycleId], references: [id])
+  createdAt              DateTime     @default(now())
+  updatedAt              DateTime     @updatedAt
+
+  @@index([month, year, type])
+  @@index([status])
+}
+
+model AuditLog {
+  id          String      @id @default(cuid())
+  action      AuditAction
+  entityType  String
+  entityId    String?
+  description String
+  metadata    Json?
+  actorId     String?
+  actor       User?       @relation("AuditActor", fields: [actorId], references: [id])
+  createdAt   DateTime    @default(now())
+
+  @@index([action, createdAt])
+  @@index([entityType, entityId])
+}
+
+model BrandingConfig {
+  id             String    @id @default("default")
+  companyName    String
+  appTitle       String
+  logoPath       String
+  faviconPath    String
+  primaryColor   String    @default("#97C972")
+  accentColor    String    @default("#D3FDD7")
+  textColor      String    @default("#434343")
+  photosRequired Boolean   @default(false)
+  updatedById    String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+}
+
+model FileUpload {
+  id                String                    @id @default(cuid())
+  bucket            String
+  path              String
+  publicUrl         String?
+  contentType       String?
+  sizeBytes         Int?
+  uploadedById      String?
+  officeSubmissionId String?
+  truckSubmissionId String?
+  uploadedBy        User?                     @relation(fields: [uploadedById], references: [id])
+  officeSubmission  OfficeInventorySubmission? @relation("OfficeSubmissionFiles", fields: [officeSubmissionId], references: [id])
+  truckSubmission   TruckInventorySubmission?  @relation("TruckSubmissionFiles", fields: [truckSubmissionId], references: [id])
+  createdAt         DateTime                  @default(now())
+
+  @@index([officeSubmissionId])
+  @@index([truckSubmissionId])
+}

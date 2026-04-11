@@ -1,0 +1,271 @@
+import { format } from "date-fns";
+import Link from "next/link";
+
+import { resendMonthlySummaryAction, setMonthLockAction } from "@/lib/actions/admin";
+import { requireAdmin } from "@/lib/auth-helpers";
+import { db } from "@/lib/db";
+import { getMonthlySnapshot } from "@/lib/services/monthly";
+import { getCurrentMonthYear } from "@/lib/time";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardDescription, CardTitle } from "@/components/ui/card";
+
+function parseMonthYear(searchParams?: { month?: string; year?: string }) {
+  const now = getCurrentMonthYear();
+  const month = Number(searchParams?.month ?? now.month);
+  const year = Number(searchParams?.year ?? now.year);
+
+  return {
+    month: Number.isFinite(month) && month >= 1 && month <= 12 ? month : now.month,
+    year: Number.isFinite(year) && year >= 2024 ? year : now.year
+  };
+}
+
+export default async function AdminDashboardPage({
+  searchParams
+}: {
+  searchParams?: Promise<{ month?: string; year?: string }>;
+}) {
+  await requireAdmin();
+
+  const resolvedSearchParams = searchParams ? await searchParams : undefined;
+  const { month, year } = parseMonthYear(resolvedSearchParams);
+
+  const [snapshot, autoEmailLog] = await Promise.all([
+    getMonthlySnapshot(month, year),
+    db.emailLog.findFirst({
+      where: { month, year, type: "AUTO_FINAL", status: "SENT" },
+      orderBy: { sentAt: "desc" }
+    })
+  ]);
+
+  async function toggleMonthLock() {
+    "use server";
+    await setMonthLockAction(month, year, !(snapshot.cycle?.isLocked ?? false));
+  }
+
+  async function manualResend() {
+    "use server";
+    await resendMonthlySummaryAction(month, year);
+  }
+
+  return (
+    <div className="space-y-4">
+      <Card>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <CardTitle>Monthly Completion Dashboard</CardTitle>
+            <CardDescription className="mt-1">
+              Track required office and truck inventory submissions for {month}/{year}.
+            </CardDescription>
+          </div>
+          <form className="flex items-end gap-2" method="GET">
+            <div>
+              <label className="mb-1 block text-xs font-medium text-gray-600">Month</label>
+              <input
+                name="month"
+                type="number"
+                min={1}
+                max={12}
+                defaultValue={month}
+                className="h-10 w-20 rounded-lg border border-gray-300 px-2"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-gray-600">Year</label>
+              <input
+                name="year"
+                type="number"
+                min={2024}
+                defaultValue={year}
+                className="h-10 w-24 rounded-lg border border-gray-300 px-2"
+              />
+            </div>
+            <Button type="submit" size="sm">
+              Load
+            </Button>
+          </form>
+        </div>
+      </Card>
+
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <Card>
+          <CardDescription>Percent Complete</CardDescription>
+          <CardTitle className="mt-1 text-3xl">{snapshot.percentComplete}%</CardTitle>
+        </Card>
+        <Card>
+          <CardDescription>Office Completion</CardDescription>
+          <CardTitle className="mt-1 text-2xl">
+            {snapshot.completedOfficeCount}/{snapshot.requiredOfficeCount}
+          </CardTitle>
+        </Card>
+        <Card>
+          <CardDescription>Truck Completion</CardDescription>
+          <CardTitle className="mt-1 text-2xl">
+            {snapshot.completedTruckCount}/{snapshot.requiredTruckCount}
+          </CardTitle>
+        </Card>
+        <Card>
+          <CardDescription>Month Lock</CardDescription>
+          <div className="mt-2">
+            <Badge variant={snapshot.cycle?.isLocked ? "warning" : "success"}>
+              {snapshot.cycle?.isLocked ? "Locked" : "Unlocked"}
+            </Badge>
+          </div>
+          <form action={toggleMonthLock} className="mt-3">
+            <Button size="sm" variant="secondary" className="w-full">
+              {snapshot.cycle?.isLocked ? "Unlock Month" : "Lock Month"}
+            </Button>
+          </form>
+        </Card>
+      </div>
+
+      <Card>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <CardTitle>Email Status</CardTitle>
+            <CardDescription className="mt-1">
+              Auto-send happens once when the final required submission is completed.
+            </CardDescription>
+          </div>
+          <form action={manualResend}>
+            <Button variant="secondary">Manual Resend</Button>
+          </form>
+        </div>
+        <div className="mt-3 text-sm text-gray-700">
+          {autoEmailLog?.sentAt ? (
+            <>
+              <Badge variant="success">Auto email sent</Badge>
+              <p className="mt-2">Sent at {format(autoEmailLog.sentAt, "MMM d, yyyy h:mm a")}</p>
+            </>
+          ) : (
+            <>
+              <Badge variant="warning">Auto email not sent yet</Badge>
+              <p className="mt-2">Waiting for all required submissions.</p>
+            </>
+          )}
+        </div>
+      </Card>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card>
+          <CardTitle>Office Completion Cards</CardTitle>
+          <div className="mt-4 space-y-3">
+            {snapshot.offices.map((office) => (
+              <div key={office.id} className="rounded-xl border border-gray-200 p-3 text-sm">
+                <div className="flex items-center justify-between">
+                  <strong>{office.name}</strong>
+                  <Badge
+                    variant={!office.required ? "default" : office.submitted ? "success" : "danger"}
+                  >
+                    {!office.required ? "Not required" : office.submitted ? "Complete" : "Missing"}
+                  </Badge>
+                </div>
+                <p className="mt-1 text-gray-600">
+                  {office.submitted
+                    ? `${office.technicianName ?? "Unknown"} - ${
+                        office.submittedAt ? format(office.submittedAt, "MMM d h:mm a") : "No timestamp"
+                      }`
+                    : "Not submitted"}
+                </p>
+                {office.submissionId ? (
+                  <Link
+                    href={`/admin/submissions/office/${office.submissionId}?month=${month}&year=${year}`}
+                    className="mt-2 inline-block text-sm font-medium text-brand-dark underline"
+                  >
+                    Open submission
+                  </Link>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        </Card>
+
+        <Card>
+          <CardTitle>Truck Completion Cards</CardTitle>
+          <div className="mt-4 space-y-3">
+            {snapshot.trucks.map((truck) => (
+              <div key={truck.id} className="rounded-xl border border-gray-200 p-3 text-sm">
+                <div className="flex items-center justify-between">
+                  <strong>{truck.name}</strong>
+                  <Badge
+                    variant={!truck.required ? "default" : truck.submitted ? "success" : "danger"}
+                  >
+                    {!truck.required ? "Not required" : truck.submitted ? "Complete" : "Missing"}
+                  </Badge>
+                </div>
+                <p className="mt-1 text-gray-600">
+                  {truck.submitted
+                    ? `${truck.technicianName ?? "Unknown"} - ${
+                        truck.submittedAt ? format(truck.submittedAt, "MMM d h:mm a") : "No timestamp"
+                      }`
+                    : "Not submitted"}
+                </p>
+                {truck.submissionId ? (
+                  <Link
+                    href={`/admin/submissions/truck/${truck.submissionId}?month=${month}&year=${year}`}
+                    className="mt-2 inline-block text-sm font-medium text-brand-dark underline"
+                  >
+                    Open submission
+                  </Link>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        </Card>
+      </div>
+
+      <Card>
+        <CardTitle>Missing Submissions</CardTitle>
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <div>
+            <h3 className="text-sm font-semibold text-gray-700">Offices</h3>
+            <ul className="mt-2 space-y-1 text-sm text-gray-600">
+              {snapshot.missingOffices.length ? (
+                snapshot.missingOffices.map((office) => <li key={office.id}>- {office.name}</li>)
+              ) : (
+                <li>All required offices complete.</li>
+              )}
+            </ul>
+          </div>
+          <div>
+            <h3 className="text-sm font-semibold text-gray-700">Trucks</h3>
+            <ul className="mt-2 space-y-1 text-sm text-gray-600">
+              {snapshot.missingTrucks.length ? (
+                snapshot.missingTrucks.map((truck) => <li key={truck.id}>- {truck.name}</li>)
+              ) : (
+                <li>All required trucks complete.</li>
+              )}
+            </ul>
+          </div>
+        </div>
+      </Card>
+
+      <Card>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <CardTitle>Exports</CardTitle>
+            <CardDescription className="mt-1">Download CSV reports for this month.</CardDescription>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <a href={`/api/admin/export?month=${month}&year=${year}&type=all`}>
+              <Button variant="secondary" size="sm">
+                Export All CSV
+              </Button>
+            </a>
+            <a href={`/api/admin/export?month=${month}&year=${year}&type=office`}>
+              <Button variant="secondary" size="sm">
+                Export Office CSV
+              </Button>
+            </a>
+            <a href={`/api/admin/export?month=${month}&year=${year}&type=truck`}>
+              <Button variant="secondary" size="sm">
+                Export Truck CSV
+              </Button>
+            </a>
+          </div>
+        </div>
+      </Card>
+    </div>
+  );
+}
