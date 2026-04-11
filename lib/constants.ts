@@ -44,9 +44,10 @@ export const INVENTORY_ITEM_SEED: Array<{ name: string; scope: InventoryScope }>
 ];
 
 export const DEMO_TECHNICIANS = [
-  { name: "Ogden Tech", userCode: "OGD100", office: "Ogden", pin: "1001", isActive: true },
-  { name: "Logan Tech", userCode: "LOG200", office: "Logan", pin: "1002", isActive: true },
-  { name: "Cedar Tech", userCode: "CED300", office: "Cedar City", pin: "1003", isActive: true },
-  { name: "Idaho Tech", userCode: "IDA400", office: "Twin Falls", pin: "1004", isActive: true },
-  { name: "Former Tech (Inactive)", userCode: "OLD500", office: "Ogden", pin: "1999", isActive: false }
+  { name: "Teagan Dixon", userCode: "7716", office: "Twin Falls", pin: "7716", isActive: true },
+  { name: "Cole Houston", userCode: "0383", office: "Pocatello", pin: "0383", isActive: true },
+  { name: "Spencer Petersen", userCode: "9758", office: "Ogden", pin: "9758", isActive: true },
+  { name: "Skyler Kearl", userCode: "3531", office: "Ogden", pin: "3531", isActive: true },
+  { name: "James Meritt", userCode: "6514", office: "Logan", pin: "6514", isActive: true },
+  { name: "Andrew Maxwell", userCode: "3362", office: "Cedar City", pin: "3362", isActive: true }
 ] as const;
