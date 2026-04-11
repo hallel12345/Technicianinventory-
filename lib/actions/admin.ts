@@ -33,6 +33,20 @@ async function requireAdminSession() {
   return session.user;
 }
 
+async function assertAnotherActiveAdminExists(excludingUserId: string) {
+  const activeAdminCount = await db.user.count({
+    where: {
+      role: Role.ADMIN,
+      isActive: true,
+      id: { not: excludingUserId }
+    }
+  });
+
+  if (!activeAdminCount) {
+    throw new Error("At least one active admin must remain.");
+  }
+}
+
 export async function saveOfficeAction(rawInput: unknown) {
   const admin = await requireAdminSession();
   const input = officeSchema.parse(rawInput);
@@ -174,6 +188,20 @@ export async function saveUserAction(rawInput: unknown) {
   }
   if (existing && input.role === Role.TECHNICIAN && !existing.pinHash && !input.pin) {
     throw new Error("Set a 4-digit PIN for this technician account.");
+  }
+
+  if (existing) {
+    const willStayAdmin = input.role === Role.ADMIN;
+    const willStayActive = input.isActive;
+    const adminPrivilegesRemoved = existing.role === Role.ADMIN && existing.isActive && (!willStayAdmin || !willStayActive);
+
+    if (existing.id === admin.id && adminPrivilegesRemoved) {
+      throw new Error("You cannot deactivate your own admin account while signed in.");
+    }
+
+    if (adminPrivilegesRemoved) {
+      await assertAnotherActiveAdminExists(existing.id);
+    }
   }
 
   const passwordHash = input.password ? await bcrypt.hash(input.password, 12) : undefined;
@@ -428,13 +456,45 @@ export async function archiveEntityAction(
       description: `${isActive ? "Activated" : "Archived"} inventory item`
     });
   } else {
-    await db.user.update({ where: { id }, data: { isActive } });
+    const targetUser = await db.user.findUnique({
+      where: { id },
+      select: { id: true, role: true, name: true }
+    });
+
+    if (!targetUser) {
+      throw new Error("User not found.");
+    }
+
+    if (!isActive) {
+      if (targetUser.id === admin.id) {
+        throw new Error("You cannot deactivate your own admin account while signed in.");
+      }
+
+      if (targetUser.role === Role.ADMIN) {
+        await assertAnotherActiveAdminExists(targetUser.id);
+      }
+    }
+
+    await db.user.update({
+      where: { id },
+      data: isActive
+        ? { isActive: true, failedLoginAttempts: 0, lockedUntil: null }
+        : { isActive: false }
+    });
+
     await logAudit({
-      action: isActive ? AuditAction.USER_UPDATED : AuditAction.TECHNICIAN_DEACTIVATED,
+      action:
+        !isActive && targetUser.role === Role.TECHNICIAN
+          ? AuditAction.TECHNICIAN_DEACTIVATED
+          : AuditAction.USER_UPDATED,
       entityType: "User",
       entityId: id,
       actorId: admin.id,
-      description: `${isActive ? "Activated" : "Deactivated"} user`
+      description: `${isActive ? "Activated" : "Deactivated"} user`,
+      metadata: {
+        role: targetUser.role,
+        userName: targetUser.name
+      }
     });
   }
 
