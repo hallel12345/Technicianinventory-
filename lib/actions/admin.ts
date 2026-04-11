@@ -325,7 +325,9 @@ export async function editSubmissionAction(rawInput: unknown) {
       description: `Edited ${input.submissionType} submission`,
       metadata: {
         technicianName: input.technicianName,
-        countCount: input.counts.length
+        countCount: input.counts.length,
+        odometerMiles: input.submissionType === "truck" ? input.odometerMiles : undefined,
+        lastOilChangeDate: input.submissionType === "truck" ? input.lastOilChangeDate : undefined
       }
     });
 

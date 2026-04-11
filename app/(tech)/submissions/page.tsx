@@ -68,6 +68,14 @@ export default async function MySubmissionsPage() {
                 <p className="mt-1 text-gray-600">
                   Submitted {format(submission.submittedAt, "MMM d, yyyy h:mm a")}
                 </p>
+                <p className="mt-1 text-gray-600">
+                  Odometer: {submission.odometerMiles} mi | Oil change:{" "}
+                  {submission.oilChangeCompleted ? "completed" : "not marked"}
+                </p>
+                <p className="mt-1 text-gray-600">
+                  Last oil change date:{" "}
+                  {submission.lastOilChangeDate ? format(submission.lastOilChangeDate, "MMM d, yyyy") : "-"}
+                </p>
               </div>
             ))
           ) : (

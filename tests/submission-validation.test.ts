@@ -7,6 +7,11 @@ describe("technicianSubmissionSchema", () => {
     const payload = {
       officeId: "office-1",
       truckId: "truck-1",
+      odometerMiles: 123456,
+      oilChangeCompleted: false,
+      maintenanceCheckCompleted: true,
+      lastOilChangeDate: "2026-04-01",
+      maintenanceNotes: "No issues found.",
       technicianName: "Tester",
       notes: "all good",
       problemsReported: "",
@@ -30,6 +35,9 @@ describe("technicianSubmissionSchema", () => {
     const result = technicianSubmissionSchema.safeParse({
       officeId: "office-1",
       truckId: "truck-1",
+      odometerMiles: 1000,
+      oilChangeCompleted: false,
+      maintenanceCheckCompleted: false,
       technicianName: "Tester",
       officeCounts: [{ itemId: "a", quantity: -1 }],
       truckCounts: [{ itemId: "a", quantity: 0 }]
@@ -42,6 +50,9 @@ describe("technicianSubmissionSchema", () => {
     const result = technicianSubmissionSchema.safeParse({
       officeId: "office-1",
       truckId: "truck-1",
+      odometerMiles: 1000,
+      oilChangeCompleted: false,
+      maintenanceCheckCompleted: false,
       technicianName: "Tester",
       officeCounts: [
         { itemId: "a", quantity: 1 },
@@ -54,5 +65,33 @@ describe("technicianSubmissionSchema", () => {
     if (!result.success) {
       expect(result.error.issues.some((issue) => issue.path.join(".") === "officeCounts")).toBe(true);
     }
+  });
+
+  it("requires odometer miles", () => {
+    const result = technicianSubmissionSchema.safeParse({
+      officeId: "office-1",
+      truckId: "truck-1",
+      technicianName: "Tester",
+      officeCounts: [{ itemId: "a", quantity: 1 }],
+      truckCounts: [{ itemId: "b", quantity: 1 }]
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects invalid oil change date format", () => {
+    const result = technicianSubmissionSchema.safeParse({
+      officeId: "office-1",
+      truckId: "truck-1",
+      odometerMiles: 1000,
+      oilChangeCompleted: true,
+      maintenanceCheckCompleted: false,
+      lastOilChangeDate: "04/01/2026",
+      technicianName: "Tester",
+      officeCounts: [{ itemId: "a", quantity: 1 }],
+      truckCounts: [{ itemId: "b", quantity: 1 }]
+    });
+
+    expect(result.success).toBe(false);
   });
 });

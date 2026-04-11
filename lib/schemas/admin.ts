@@ -59,12 +59,31 @@ export const brandingSchema = z.object({
   photosRequired: z.boolean()
 });
 
-export const submissionEditSchema = z.object({
-  submissionType: z.enum(["office", "truck"]),
-  submissionId: z.string().min(1),
-  technicianName: z.string().min(2),
-  notes: z.string().optional(),
-  problemsReported: z.string().optional(),
-  missingDamagedNotes: z.string().optional(),
-  counts: z.array(z.object({ itemId: z.string(), quantity: z.number().int().min(0) }))
-});
+export const submissionEditSchema = z
+  .object({
+    submissionType: z.enum(["office", "truck"]),
+    submissionId: z.string().min(1),
+    technicianName: z.string().min(2),
+    odometerMiles: z.number().int().min(0).optional(),
+    oilChangeCompleted: z.boolean().optional(),
+    maintenanceCheckCompleted: z.boolean().optional(),
+    lastOilChangeDate: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, "Use a valid oil change date")
+      .optional()
+      .or(z.literal("")),
+    maintenanceNotes: z.string().optional(),
+    notes: z.string().optional(),
+    problemsReported: z.string().optional(),
+    missingDamagedNotes: z.string().optional(),
+    counts: z.array(z.object({ itemId: z.string(), quantity: z.number().int().min(0) }))
+  })
+  .superRefine((value, ctx) => {
+    if (value.submissionType === "truck" && value.odometerMiles === undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["odometerMiles"],
+        message: "Truck mileage is required."
+      });
+    }
+  });

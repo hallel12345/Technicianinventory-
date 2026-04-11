@@ -25,6 +25,15 @@ function normalizeText(value?: string | null) {
   return trimmed ? trimmed : null;
 }
 
+function normalizeDateInput(value?: string | null) {
+  const normalized = value?.trim();
+  if (!normalized) {
+    return null;
+  }
+
+  return new Date(`${normalized}T00:00:00.000Z`);
+}
+
 export async function createTechnicianSubmission(input: TechnicianSubmissionInput, userId: string) {
   const validated = technicianSubmissionSchema.parse(input);
   const { month, year } = getCurrentMonthYear();
@@ -85,6 +94,11 @@ export async function createTechnicianSubmission(input: TechnicianSubmissionInpu
           monthlyCycleId: cycle.id,
           truckId: truck.id,
           technicianName: validated.technicianName.trim(),
+          odometerMiles: validated.odometerMiles,
+          oilChangeCompleted: validated.oilChangeCompleted,
+          maintenanceCheckCompleted: validated.maintenanceCheckCompleted,
+          lastOilChangeDate: normalizeDateInput(validated.lastOilChangeDate),
+          maintenanceNotes: normalizeText(validated.maintenanceNotes),
           notes: normalizeText(validated.notes),
           problemsReported: normalizeText(validated.problemsReported),
           missingDamagedNotes: normalizeText(validated.missingDamagedNotes),
@@ -159,6 +173,11 @@ export async function editSubmission(input: {
   submissionType: "office" | "truck";
   submissionId: string;
   technicianName: string;
+  odometerMiles?: number;
+  oilChangeCompleted?: boolean;
+  maintenanceCheckCompleted?: boolean;
+  lastOilChangeDate?: string;
+  maintenanceNotes?: string;
   notes?: string;
   problemsReported?: string;
   missingDamagedNotes?: string;
@@ -224,6 +243,11 @@ export async function editSubmission(input: {
       where: { id: existing.id },
       data: {
         technicianName: input.technicianName,
+        odometerMiles: input.odometerMiles,
+        oilChangeCompleted: input.oilChangeCompleted,
+        maintenanceCheckCompleted: input.maintenanceCheckCompleted,
+        lastOilChangeDate: normalizeDateInput(input.lastOilChangeDate),
+        maintenanceNotes: normalizeText(input.maintenanceNotes),
         notes: normalizeText(input.notes),
         problemsReported: normalizeText(input.problemsReported),
         missingDamagedNotes: normalizeText(input.missingDamagedNotes),

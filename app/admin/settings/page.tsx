@@ -1,6 +1,5 @@
 import { getRequiredTargetsForMonth } from "@/lib/services/monthly";
 import { requireAdmin } from "@/lib/auth-helpers";
-import { defaultBranding } from "@/lib/branding";
 import { db } from "@/lib/db";
 import { getCurrentMonthYear } from "@/lib/time";
 import { Card, CardDescription, CardTitle } from "@/components/ui/card";
@@ -26,12 +25,11 @@ export default async function AdminSettingsPage({
   const resolvedSearchParams = searchParams ? await searchParams : undefined;
   const { month, year } = parseMonthYear(resolvedSearchParams);
 
-  const [offices, trucks, items, users, branding, requiredTargets] = await Promise.all([
+  const [offices, trucks, items, users, requiredTargets] = await Promise.all([
     db.office.findMany({ orderBy: { name: "asc" } }),
     db.truck.findMany({ orderBy: [{ office: { name: "asc" } }, { licensePlate: "asc" }] }),
     db.inventoryItem.findMany({ orderBy: [{ sortOrder: "asc" }, { name: "asc" }] }),
     db.user.findMany({ orderBy: [{ role: "asc" }, { name: "asc" }] }),
-    db.brandingConfig.findUnique({ where: { id: "default" } }),
     db.$transaction((tx) => getRequiredTargetsForMonth(tx, month, year))
   ]);
 
@@ -47,7 +45,7 @@ export default async function AdminSettingsPage({
       <Card>
         <CardTitle>Admin Settings</CardTitle>
         <CardDescription className="mt-1">
-          Manage offices, trucks, inventory items, users, branding, and monthly required overrides.
+          Manage offices, trucks, inventory items, users, and monthly required overrides.
         </CardDescription>
       </Card>
 
@@ -85,7 +83,6 @@ export default async function AdminSettingsPage({
         trucks={trucks}
         items={items}
         users={users}
-        branding={branding ?? defaultBranding}
         officeRequired={officeRequired}
         truckRequired={truckRequired}
       />

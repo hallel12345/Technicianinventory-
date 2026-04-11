@@ -10,8 +10,7 @@ import {
   saveOfficeAction,
   saveTruckAction,
   saveUserAction,
-  setMonthlyRequiredToggleAction,
-  updateBrandingAction
+  setMonthlyRequiredToggleAction
 } from "@/lib/actions/admin";
 import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardTitle } from "@/components/ui/card";
@@ -52,17 +51,6 @@ type User = {
   isActive: boolean;
 };
 
-type Branding = {
-  companyName: string;
-  appTitle: string;
-  logoPath: string;
-  faviconPath: string;
-  primaryColor: string;
-  accentColor: string;
-  textColor: string;
-  photosRequired: boolean;
-};
-
 function boolText(value: boolean) {
   return value ? "true" : "false";
 }
@@ -74,7 +62,6 @@ export function SettingsClient({
   trucks,
   items,
   users,
-  branding,
   officeRequired,
   truckRequired
 }: {
@@ -84,7 +71,6 @@ export function SettingsClient({
   trucks: Truck[];
   items: InventoryItem[];
   users: User[];
-  branding: Branding;
   officeRequired: Record<string, boolean>;
   truckRequired: Record<string, boolean>;
 }) {
@@ -111,50 +97,6 @@ export function SettingsClient({
     <div className="space-y-4">
       {feedback ? <p className="text-sm text-green-700">{feedback}</p> : null}
       {error ? <p className="text-sm text-red-700">{error}</p> : null}
-
-      <Card>
-        <CardTitle>Branding</CardTitle>
-        <CardDescription className="mt-1">
-          Update company title, logo paths, color tokens, and whether photos are required.
-        </CardDescription>
-        <form
-          className="mt-4 grid gap-3 sm:grid-cols-2"
-          onSubmit={(event) => {
-            event.preventDefault();
-            const form = new FormData(event.currentTarget);
-
-            runServerAction(
-              () =>
-                updateBrandingAction({
-                  companyName: String(form.get("companyName") ?? ""),
-                  appTitle: String(form.get("appTitle") ?? ""),
-                  logoPath: String(form.get("logoPath") ?? ""),
-                  faviconPath: String(form.get("faviconPath") ?? ""),
-                  primaryColor: String(form.get("primaryColor") ?? ""),
-                  accentColor: String(form.get("accentColor") ?? ""),
-                  textColor: String(form.get("textColor") ?? ""),
-                  photosRequired: String(form.get("photosRequired") ?? "false") === "true"
-                }),
-              "Branding updated."
-            );
-          }}
-        >
-          <Input name="companyName" defaultValue={branding.companyName} placeholder="Company Name" required />
-          <Input name="appTitle" defaultValue={branding.appTitle} placeholder="App Title" required />
-          <Input name="logoPath" defaultValue={branding.logoPath} placeholder="/branding/logo.png" required />
-          <Input name="faviconPath" defaultValue={branding.faviconPath} placeholder="/branding/favicon.ico" required />
-          <Input name="primaryColor" defaultValue={branding.primaryColor} placeholder="#97C972" required />
-          <Input name="accentColor" defaultValue={branding.accentColor} placeholder="#D3FDD7" required />
-          <Input name="textColor" defaultValue={branding.textColor} placeholder="#434343" required />
-          <Select name="photosRequired" defaultValue={boolText(branding.photosRequired)}>
-            <option value="false">Photos optional</option>
-            <option value="true">Photos required</option>
-          </Select>
-          <Button type="submit" className="sm:col-span-2" disabled={isPending}>
-            Save Branding
-          </Button>
-        </form>
-      </Card>
 
       <Card>
         <CardTitle>Office Settings</CardTitle>

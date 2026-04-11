@@ -58,6 +58,11 @@ export function InventoryWizard({
     defaultValues: {
       officeId: "",
       truckId: "",
+      odometerMiles: 0,
+      oilChangeCompleted: false,
+      maintenanceCheckCompleted: false,
+      lastOilChangeDate: "",
+      maintenanceNotes: "",
       technicianName,
       notes: "",
       problemsReported: "",
@@ -87,6 +92,11 @@ export function InventoryWizard({
       const parsed = JSON.parse(saved) as TechnicianSubmissionInput;
       form.reset({
         ...parsed,
+        odometerMiles: parsed.odometerMiles ?? 0,
+        oilChangeCompleted: parsed.oilChangeCompleted ?? false,
+        maintenanceCheckCompleted: parsed.maintenanceCheckCompleted ?? false,
+        lastOilChangeDate: parsed.lastOilChangeDate ?? "",
+        maintenanceNotes: parsed.maintenanceNotes ?? "",
         uploadedFileIds: parsed.uploadedFileIds ?? []
       });
     } catch {
@@ -158,7 +168,15 @@ export function InventoryWizard({
     }
 
     if (step === 5) {
-      const valid = await form.trigger(["technicianName", "notes", "problemsReported", "missingDamagedNotes"]);
+      const valid = await form.trigger([
+        "odometerMiles",
+        "lastOilChangeDate",
+        "maintenanceNotes",
+        "technicianName",
+        "notes",
+        "problemsReported",
+        "missingDamagedNotes"
+      ]);
       if (!valid) {
         return;
       }
@@ -276,8 +294,37 @@ export function InventoryWizard({
 
       {step === 5 ? (
         <Card>
-          <CardTitle>Details & Notes</CardTitle>
+          <CardTitle>Details, Mileage & Notes</CardTitle>
           <div className="mt-4 space-y-3">
+            <div>
+              <label className="mb-1 block text-sm font-medium text-gray-700">Truck Odometer (miles)</label>
+              <Input
+                type="number"
+                min={0}
+                step={1}
+                {...form.register("odometerMiles", { valueAsNumber: true })}
+              />
+              <p className="text-sm text-red-600">{form.formState.errors.odometerMiles?.message}</p>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <label className="flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm">
+                <input type="checkbox" {...form.register("oilChangeCompleted")} />
+                Oil change completed
+              </label>
+              <label className="flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm">
+                <input type="checkbox" {...form.register("maintenanceCheckCompleted")} />
+                Maintenance check completed
+              </label>
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-gray-700">Last Oil Change Date</label>
+              <Input type="date" {...form.register("lastOilChangeDate")} />
+              <p className="text-sm text-red-600">{form.formState.errors.lastOilChangeDate?.message}</p>
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-gray-700">Maintenance Notes</label>
+              <Textarea {...form.register("maintenanceNotes")} />
+            </div>
             <div>
               <label className="mb-1 block text-sm font-medium text-gray-700">Technician Name</label>
               <Input {...form.register("technicianName")} />
@@ -333,6 +380,22 @@ export function InventoryWizard({
             </p>
             <p>
               <strong>Technician:</strong> {form.getValues("technicianName")}
+            </p>
+            <p>
+              <strong>Truck Odometer:</strong> {form.getValues("odometerMiles")} miles
+            </p>
+            <p>
+              <strong>Oil Change Completed:</strong> {form.getValues("oilChangeCompleted") ? "Yes" : "No"}
+            </p>
+            <p>
+              <strong>Last Oil Change Date:</strong> {form.getValues("lastOilChangeDate") || "-"}
+            </p>
+            <p>
+              <strong>Maintenance Check Completed:</strong>{" "}
+              {form.getValues("maintenanceCheckCompleted") ? "Yes" : "No"}
+            </p>
+            <p>
+              <strong>Maintenance Notes:</strong> {form.getValues("maintenanceNotes") || "-"}
             </p>
             <p>
               <strong>Office Item Total Units:</strong>{" "}

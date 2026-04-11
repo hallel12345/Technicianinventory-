@@ -21,9 +21,10 @@ Technician flow (mobile-first):
 3. Select truck by license plate
 4. Enter office inventory counts
 5. Enter truck inventory counts
-6. Review
-7. Submit
-8. Success confirmation
+6. Enter truck odometer miles + oil/maintenance checks
+7. Review
+8. Submit
+9. Success confirmation
 
 Admin flow:
 - Dashboard completion monitoring by month
@@ -32,7 +33,7 @@ Admin flow:
 - Month lock/unlock
 - One-click manual resend of monthly summary email
 - CSV exports
-- Settings for offices, trucks, inventory items, users, branding, and monthly required overrides
+- Settings for offices, trucks, inventory items, users, and monthly required overrides
 
 ## Core Business Rules Implemented
 - Distinct office and truck submission records, created in one technician flow
@@ -44,6 +45,9 @@ Admin flow:
 - Automatic final-month email sends once when all required submissions complete
 - Auto-email de-duplication protected by unique `EmailLog.autoKey` per month
 - Manual resend available for admins and tracked in `EmailLog` + `AuditLog`
+- Truck submissions track odometer miles, oil-change completion, maintenance checks, and notes
+- Truck submissions track last oil-change date for maintenance history visibility
+- Miles driven since prior submission are computed for admin monitoring/export
 
 ## Project Structure
 - `app/` routes, layouts, API routes
@@ -194,7 +198,7 @@ Use `/admin/settings`:
 - Add/edit/archive inventory items
 - Set inventory item scope (`OFFICE`, `TRUCK`, `BOTH`)
 - Create/edit/deactivate technician and admin users
-- Update branding config (logo path, app title, colors)
+- Branding changes are intentionally managed outside the admin UI
 
 ## CSV Exports
 From Admin Dashboard:

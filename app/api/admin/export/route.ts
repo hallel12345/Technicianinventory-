@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { toCsv } from "@/lib/csv";
 import { db } from "@/lib/db";
+import { getTruckMileageMetricsMap } from "@/lib/services/truck-metrics";
 import { getCurrentMonthYear } from "@/lib/time";
 
 export async function GET(request: Request) {
@@ -47,6 +48,17 @@ export async function GET(request: Request) {
   ]);
 
   const rows: Array<Record<string, string | number | null | undefined>> = [];
+  const truckMileageMap = await getTruckMileageMetricsMap(
+    db,
+    truckSubmissions.map((submission) => ({
+      id: submission.id,
+      truckId: submission.truckId,
+      month: submission.month,
+      year: submission.year,
+      odometerMiles: submission.odometerMiles,
+      oilChangeCompleted: submission.oilChangeCompleted
+    }))
+  );
 
   for (const submission of officeSubmissions) {
     for (const count of submission.counts) {
@@ -59,6 +71,14 @@ export async function GET(request: Request) {
         submittedAt: submission.submittedAt.toISOString(),
         itemName: count.inventoryItem.name,
         quantity: count.quantity,
+        odometerMiles: null,
+        previousOdometerMiles: null,
+        milesDrivenSinceLast: null,
+        oilChangeCompleted: null,
+        maintenanceCheckCompleted: null,
+        lastOilChangeDate: null,
+        oilChangeDue: null,
+        maintenanceNotes: null,
         notes: submission.notes,
         problemsReported: submission.problemsReported,
         missingDamagedNotes: submission.missingDamagedNotes
@@ -67,6 +87,7 @@ export async function GET(request: Request) {
   }
 
   for (const submission of truckSubmissions) {
+    const mileageMetrics = truckMileageMap.get(submission.id);
     for (const count of submission.counts) {
       rows.push({
         type: "truck",
@@ -77,6 +98,14 @@ export async function GET(request: Request) {
         submittedAt: submission.submittedAt.toISOString(),
         itemName: count.inventoryItem.name,
         quantity: count.quantity,
+        odometerMiles: submission.odometerMiles,
+        previousOdometerMiles: mileageMetrics?.previousOdometerMiles ?? null,
+        milesDrivenSinceLast: mileageMetrics?.milesDrivenSinceLast ?? null,
+        oilChangeCompleted: submission.oilChangeCompleted ? "yes" : "no",
+        maintenanceCheckCompleted: submission.maintenanceCheckCompleted ? "yes" : "no",
+        lastOilChangeDate: submission.lastOilChangeDate ? submission.lastOilChangeDate.toISOString().slice(0, 10) : null,
+        oilChangeDue: mileageMetrics?.oilChangeDue ? "yes" : "no",
+        maintenanceNotes: submission.maintenanceNotes,
         notes: submission.notes,
         problemsReported: submission.problemsReported,
         missingDamagedNotes: submission.missingDamagedNotes

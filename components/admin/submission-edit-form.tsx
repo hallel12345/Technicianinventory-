@@ -18,6 +18,11 @@ export function SubmissionEditForm({
   submissionType,
   submissionId,
   technicianName,
+  odometerMiles,
+  oilChangeCompleted,
+  maintenanceCheckCompleted,
+  lastOilChangeDate,
+  maintenanceNotes,
   notes,
   problemsReported,
   missingDamagedNotes,
@@ -26,6 +31,11 @@ export function SubmissionEditForm({
   submissionType: "office" | "truck";
   submissionId: string;
   technicianName: string;
+  odometerMiles?: number;
+  oilChangeCompleted?: boolean;
+  maintenanceCheckCompleted?: boolean;
+  lastOilChangeDate?: string;
+  maintenanceNotes?: string;
   notes: string;
   problemsReported: string;
   missingDamagedNotes: string;
@@ -36,6 +46,11 @@ export function SubmissionEditForm({
   const [error, setError] = useState<string | null>(null);
 
   const [name, setName] = useState(technicianName);
+  const [mileageValue, setMileageValue] = useState<number>(odometerMiles ?? 0);
+  const [oilChangedValue, setOilChangedValue] = useState<boolean>(oilChangeCompleted ?? false);
+  const [maintenanceCheckValue, setMaintenanceCheckValue] = useState<boolean>(maintenanceCheckCompleted ?? false);
+  const [lastOilChangeDateValue, setLastOilChangeDateValue] = useState<string>(lastOilChangeDate ?? "");
+  const [maintenanceNotesValue, setMaintenanceNotesValue] = useState<string>(maintenanceNotes ?? "");
   const [notesValue, setNotesValue] = useState(notes);
   const [problemsValue, setProblemsValue] = useState(problemsReported);
   const [missingValue, setMissingValue] = useState(missingDamagedNotes);
@@ -58,6 +73,51 @@ export function SubmissionEditForm({
           <Input value={String(totals)} readOnly />
         </div>
       </div>
+
+      {submissionType === "truck" ? (
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">Truck Odometer (miles)</label>
+            <Input
+              type="number"
+              min={0}
+              step={1}
+              value={String(mileageValue)}
+              onChange={(event) => setMileageValue(Math.max(0, Number(event.target.value || 0)))}
+            />
+          </div>
+          <div className="grid gap-2">
+            <label className="flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm">
+              <input
+                type="checkbox"
+                checked={oilChangedValue}
+                onChange={(event) => setOilChangedValue(event.target.checked)}
+              />
+              Oil change completed
+            </label>
+            <label className="flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm">
+              <input
+                type="checkbox"
+                checked={maintenanceCheckValue}
+                onChange={(event) => setMaintenanceCheckValue(event.target.checked)}
+              />
+              Maintenance check completed
+            </label>
+          </div>
+          <div className="sm:col-span-2">
+            <label className="mb-1 block text-sm font-medium text-gray-700">Last Oil Change Date</label>
+            <Input
+              type="date"
+              value={lastOilChangeDateValue}
+              onChange={(event) => setLastOilChangeDateValue(event.target.value)}
+            />
+          </div>
+          <div className="sm:col-span-2">
+            <label className="mb-1 block text-sm font-medium text-gray-700">Maintenance Notes</label>
+            <Textarea value={maintenanceNotesValue} onChange={(event) => setMaintenanceNotesValue(event.target.value)} />
+          </div>
+        </div>
+      ) : null}
 
       <div className="grid gap-3 sm:grid-cols-3">
         <div className="sm:col-span-1">
@@ -103,6 +163,11 @@ export function SubmissionEditForm({
               submissionType,
               submissionId,
               technicianName: name,
+              odometerMiles: submissionType === "truck" ? mileageValue : undefined,
+              oilChangeCompleted: submissionType === "truck" ? oilChangedValue : undefined,
+              maintenanceCheckCompleted: submissionType === "truck" ? maintenanceCheckValue : undefined,
+              lastOilChangeDate: submissionType === "truck" ? lastOilChangeDateValue : undefined,
+              maintenanceNotes: submissionType === "truck" ? maintenanceNotesValue : undefined,
               notes: notesValue,
               problemsReported: problemsValue,
               missingDamagedNotes: missingValue,

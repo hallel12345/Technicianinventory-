@@ -11,6 +11,18 @@ export const inventoryCountSchema = z.object({
 const technicianSubmissionBaseSchema = z.object({
   officeId: z.string().min(1, "Office is required"),
   truckId: z.string().min(1, "Truck is required"),
+  odometerMiles: z
+    .number({ invalid_type_error: "Enter whole miles" })
+    .int("Mileage must be an integer")
+    .min(0, "Mileage cannot be negative"),
+  oilChangeCompleted: z.boolean().default(false),
+  maintenanceCheckCompleted: z.boolean().default(false),
+  lastOilChangeDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Use a valid oil change date")
+    .optional()
+    .or(z.literal("")),
+  maintenanceNotes: z.string().max(2000).optional(),
   technicianName: z.string().min(2, "Technician name is required"),
   notes: z.string().max(2000).optional(),
   problemsReported: z.string().max(2000).optional(),

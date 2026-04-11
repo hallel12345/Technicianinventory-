@@ -189,6 +189,11 @@ model TruckInventorySubmission {
   truckId              String
   monthlyCycleId       String
   technicianName       String
+  odometerMiles        Int                    @default(0)
+  oilChangeCompleted   Boolean                @default(false)
+  maintenanceCheckCompleted Boolean           @default(false)
+  lastOilChangeDate    DateTime?
+  maintenanceNotes     String?
   notes                String?
   problemsReported     String?
   missingDamagedNotes  String?

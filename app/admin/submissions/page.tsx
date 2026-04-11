@@ -70,6 +70,9 @@ export default async function AdminSubmissionsPage({
       id: submission.id,
       label: submission.office.name,
       technicianName: submission.technicianName,
+      odometerMiles: null as number | null,
+      oilChangeCompleted: null as boolean | null,
+      lastOilChangeDate: null as Date | null,
       notes: submission.notes,
       submittedAt: submission.submittedAt
     })),
@@ -78,6 +81,9 @@ export default async function AdminSubmissionsPage({
       id: submission.id,
       label: `${submission.truck.name} (${submission.truck.licensePlate})`,
       technicianName: submission.technicianName,
+      odometerMiles: submission.odometerMiles,
+      oilChangeCompleted: submission.oilChangeCompleted,
+      lastOilChangeDate: submission.lastOilChangeDate,
       notes: submission.notes,
       submittedAt: submission.submittedAt
     }))
@@ -162,6 +168,7 @@ export default async function AdminSubmissionsPage({
                 <th className="py-2">Type</th>
                 <th className="py-2">Target</th>
                 <th className="py-2">Technician</th>
+                <th className="py-2">Mileage</th>
                 <th className="py-2">Submitted</th>
                 <th className="py-2">Actions</th>
               </tr>
@@ -175,6 +182,13 @@ export default async function AdminSubmissionsPage({
                     </td>
                     <td className="py-2 font-medium text-gray-800">{row.label}</td>
                     <td className="py-2">{row.technicianName}</td>
+                    <td className="py-2 text-gray-600">
+                      {row.type === "truck"
+                        ? `${row.odometerMiles ?? 0} mi (${row.oilChangeCompleted ? "oil done" : "oil open"})${
+                            row.lastOilChangeDate ? ` | last oil ${format(row.lastOilChangeDate, "MMM d")}` : ""
+                          }`
+                        : "-"}
+                    </td>
                     <td className="py-2 text-gray-600">{format(row.submittedAt, "MMM d, yyyy h:mm a")}</td>
                     <td className="py-2">
                       <div className="flex gap-2">

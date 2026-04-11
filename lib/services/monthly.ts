@@ -1,6 +1,7 @@
 import { Prisma, RequirementTargetType } from "@prisma/client";
 
 import { db } from "@/lib/db";
+import { getTruckMileageMetricsMap } from "@/lib/services/truck-metrics";
 import { monthKey } from "@/lib/time";
 
 export type MonthlyTx = Prisma.TransactionClient;
@@ -16,6 +17,14 @@ export type MonthlySnapshotEntity = RequiredEntityStatus & {
   submissionId?: string;
   technicianName?: string;
   submittedAt?: Date;
+  odometerMiles?: number;
+  previousOdometerMiles?: number | null;
+  milesDrivenSinceLast?: number | null;
+  oilChangeCompleted?: boolean;
+  maintenanceCheckCompleted?: boolean;
+  lastOilChangeDate?: Date | null;
+  maintenanceNotes?: string | null;
+  oilChangeDue?: boolean;
   notes?: string | null;
   problemsReported?: string | null;
   missingDamagedNotes?: string | null;
@@ -163,6 +172,17 @@ export async function getMonthlySnapshot(month: number, year: number) {
 
   const officeSubmissionMap = new Map(officeSubmissions.map((entry) => [entry.officeId, entry]));
   const truckSubmissionMap = new Map(truckSubmissions.map((entry) => [entry.truckId, entry]));
+  const truckMileageMap = await getTruckMileageMetricsMap(
+    db,
+    truckSubmissions.map((submission) => ({
+      id: submission.id,
+      truckId: submission.truckId,
+      month: submission.month,
+      year: submission.year,
+      odometerMiles: submission.odometerMiles,
+      oilChangeCompleted: submission.oilChangeCompleted
+    }))
+  );
 
   const offices: MonthlySnapshotEntity[] = entities.officeTargets.map((office) => {
     const submission = officeSubmissionMap.get(office.id);
@@ -184,12 +204,21 @@ export async function getMonthlySnapshot(month: number, year: number) {
 
   const trucks: MonthlySnapshotEntity[] = entities.truckTargets.map((truck) => {
     const submission = truckSubmissionMap.get(truck.id);
+    const mileageMetrics = submission ? truckMileageMap.get(submission.id) : undefined;
     return {
       ...truck,
       submitted: Boolean(submission),
       submissionId: submission?.id,
       technicianName: submission?.technicianName,
       submittedAt: submission?.submittedAt,
+      odometerMiles: submission?.odometerMiles,
+      previousOdometerMiles: mileageMetrics?.previousOdometerMiles,
+      milesDrivenSinceLast: mileageMetrics?.milesDrivenSinceLast,
+      oilChangeCompleted: submission?.oilChangeCompleted,
+      maintenanceCheckCompleted: submission?.maintenanceCheckCompleted,
+      lastOilChangeDate: submission?.lastOilChangeDate,
+      maintenanceNotes: submission?.maintenanceNotes,
+      oilChangeDue: mileageMetrics?.oilChangeDue,
       notes: submission?.notes,
       problemsReported: submission?.problemsReported,
       missingDamagedNotes: submission?.missingDamagedNotes,

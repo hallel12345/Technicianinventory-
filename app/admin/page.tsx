@@ -88,7 +88,7 @@ export default async function AdminDashboardPage({
         </div>
       </Card>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <Card>
           <CardDescription>Percent Complete</CardDescription>
           <CardTitle className="mt-1 text-3xl">{snapshot.percentComplete}%</CardTitle>
@@ -117,6 +117,15 @@ export default async function AdminDashboardPage({
               {snapshot.cycle?.isLocked ? "Unlock Month" : "Lock Month"}
             </Button>
           </form>
+        </Card>
+        <Card>
+          <CardDescription>Tracked Truck Miles</CardDescription>
+          <CardTitle className="mt-1 text-2xl">
+            {snapshot.trucks.reduce((sum, truck) => sum + (truck.milesDrivenSinceLast ?? 0), 0)}
+          </CardTitle>
+          <p className="mt-2 text-xs text-gray-600">
+            Sum of miles driven since prior submission across trucks this month.
+          </p>
         </Card>
       </div>
 
@@ -201,6 +210,25 @@ export default async function AdminDashboardPage({
                       }`
                     : "Not submitted"}
                 </p>
+                {truck.submitted ? (
+                  <div className="mt-2 space-y-1 text-xs text-gray-700">
+                    <p>Odometer: {truck.odometerMiles ?? 0} miles</p>
+                    <p>
+                      Miles since last:{" "}
+                      {truck.milesDrivenSinceLast !== null && truck.milesDrivenSinceLast !== undefined
+                        ? `${truck.milesDrivenSinceLast} miles`
+                        : "N/A"}
+                    </p>
+                    <p>Oil change completed: {truck.oilChangeCompleted ? "Yes" : "No"}</p>
+                    <p>
+                      Last oil change date:{" "}
+                      {truck.lastOilChangeDate ? format(truck.lastOilChangeDate, "MMM d, yyyy") : "-"}
+                    </p>
+                    <p>Maintenance check completed: {truck.maintenanceCheckCompleted ? "Yes" : "No"}</p>
+                    <p>Maintenance notes: {truck.maintenanceNotes || "-"}</p>
+                    {truck.oilChangeDue ? <p className="font-semibold text-amber-700">Oil change likely due.</p> : null}
+                  </div>
+                ) : null}
                 {truck.submissionId ? (
                   <Link
                     href={`/admin/submissions/truck/${truck.submissionId}?month=${month}&year=${year}`}
