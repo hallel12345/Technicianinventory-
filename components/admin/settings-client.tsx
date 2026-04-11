@@ -464,7 +464,7 @@ export function SettingsClient({
                 Save
               </Button>
               <Input name="password" placeholder="New password (admins)" />
-              <Input name="pin" placeholder="New 6-digit PIN" />
+              <Input name="pin" placeholder="New 4-digit PIN" />
               <Button
                 type="button"
                 variant={user.isActive ? "danger" : "secondary"}
@@ -519,7 +519,7 @@ export function SettingsClient({
               ))}
             </Select>
             <Input name="password" placeholder="Password (admin)" />
-            <Input name="pin" placeholder="6-digit PIN (tech)" />
+            <Input name="pin" placeholder="4-digit PIN (tech)" />
             <Button type="submit" className="sm:col-span-5" disabled={isPending}>
               Add User
             </Button>

@@ -16,7 +16,7 @@ Production-ready, mobile-first monthly inventory workflow for Pure Pest Solution
 
 ## What This App Does
 Technician flow (mobile-first):
-1. Log in with `userCode + PIN`
+1. Log in with `4-digit PIN`
 2. Select office
 3. Select truck by license plate
 4. Enter office inventory counts
@@ -137,11 +137,11 @@ All requested inventory items are seeded and editable in Admin Settings.
   - email: `admin@purepest.local`
   - password: `Admin123!`
 - Demo technicians:
-  - `OGD100` / `123456`
-  - `LOG200` / `123456`
-  - `CED300` / `123456`
-  - `IDA400` / `123456`
-  - `OLD500` / `123456` (inactive example account)
+  - `Ogden Tech` PIN: `1001`
+  - `Logan Tech` PIN: `1002`
+  - `Cedar Tech` PIN: `1003`
+  - `Idaho Tech` PIN: `1004`
+  - `Former Tech (Inactive)` PIN: `1999` (inactive example account)
 
 Change these immediately in production.
 

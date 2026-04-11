@@ -44,9 +44,9 @@ export const INVENTORY_ITEM_SEED: Array<{ name: string; scope: InventoryScope }>
 ];
 
 export const DEMO_TECHNICIANS = [
-  { name: "Ogden Tech", userCode: "OGD100", office: "Ogden", pin: "123456", isActive: true },
-  { name: "Logan Tech", userCode: "LOG200", office: "Logan", pin: "123456", isActive: true },
-  { name: "Cedar Tech", userCode: "CED300", office: "Cedar City", pin: "123456", isActive: true },
-  { name: "Idaho Tech", userCode: "IDA400", office: "Twin Falls", pin: "123456", isActive: true },
-  { name: "Former Tech (Inactive)", userCode: "OLD500", office: "Ogden", pin: "123456", isActive: false }
+  { name: "Ogden Tech", userCode: "OGD100", office: "Ogden", pin: "1001", isActive: true },
+  { name: "Logan Tech", userCode: "LOG200", office: "Logan", pin: "1002", isActive: true },
+  { name: "Cedar Tech", userCode: "CED300", office: "Cedar City", pin: "1003", isActive: true },
+  { name: "Idaho Tech", userCode: "IDA400", office: "Twin Falls", pin: "1004", isActive: true },
+  { name: "Former Tech (Inactive)", userCode: "OLD500", office: "Ogden", pin: "1999", isActive: false }
 ] as const;

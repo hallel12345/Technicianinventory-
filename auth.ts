@@ -36,37 +36,52 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       id: "technician-pin",
       name: "Technician PIN",
       credentials: {
-        userCode: { label: "User Code", type: "text" },
         pin: { label: "PIN", type: "password" }
       },
       async authorize(credentials) {
-        const userCode = String(credentials?.userCode ?? "").trim();
         const pin = String(credentials?.pin ?? "");
 
-        if (!userCode || !pin) {
+        if (!/^\d{4}$/.test(pin)) {
           return null;
         }
 
-        const user = await db.user.findFirst({
+        const eligibleTechnicians = await db.user.findMany({
           where: {
-            userCode,
-            role: Role.TECHNICIAN
+            role: Role.TECHNICIAN,
+            isActive: true,
+            pinHash: { not: null },
+            OR: [{ lockedUntil: null }, { lockedUntil: { lte: new Date() } }]
+          },
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            role: true,
+            officeId: true,
+            pinHash: true,
+            failedLoginAttempts: true
           }
         });
 
-        if (!user || !user.isActive || !user.pinHash) {
+        if (!eligibleTechnicians.length) {
           return null;
         }
 
-        if (user.lockedUntil && user.lockedUntil > new Date()) {
-          return null;
+        const matchedUsers: Array<(typeof eligibleTechnicians)[number]> = [];
+        for (const user of eligibleTechnicians) {
+          if (!user.pinHash) {
+            continue;
+          }
+          const matches = await bcrypt.compare(pin, user.pinHash);
+          if (matches) {
+            matchedUsers.push(user);
+          }
         }
 
-        const pinMatches = await bcrypt.compare(pin, user.pinHash);
-        if (!pinMatches) {
-          await handleFailedLogin(user.id, user.failedLoginAttempts);
+        if (matchedUsers.length !== 1) {
           return null;
         }
+        const user = matchedUsers[0];
 
         await db.user.update({
           where: { id: user.id },

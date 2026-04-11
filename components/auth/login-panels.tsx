@@ -28,15 +28,11 @@ export function LoginPanels() {
       {tab === "technician" ? (
         <Card>
           <CardTitle>Technician Sign-In</CardTitle>
-          <CardDescription className="mt-1">Use your assigned code and 6-digit PIN.</CardDescription>
+          <CardDescription className="mt-1">Enter your 4-digit technician PIN.</CardDescription>
           <form action={techAction} className="mt-4 space-y-3">
             <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">User Code</label>
-              <Input name="userCode" placeholder="OGD100" autoCapitalize="characters" required />
-            </div>
-            <div>
               <label className="mb-1 block text-sm font-medium text-gray-700">PIN</label>
-              <Input name="pin" type="password" inputMode="numeric" pattern="[0-9]*" required />
+              <Input name="pin" type="password" inputMode="numeric" pattern="[0-9]*" maxLength={4} required />
             </div>
             {techState.error ? <p className="text-sm text-red-600">{techState.error}</p> : null}
             <Button type="submit" className="w-full" disabled={techPending}>

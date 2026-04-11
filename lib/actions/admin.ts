@@ -156,14 +156,11 @@ export async function saveUserAction(rawInput: unknown) {
   const existing = input.id ? await db.user.findUnique({ where: { id: input.id } }) : null;
 
   const isTechnician = input.role === Role.TECHNICIAN;
-  if (isTechnician && !input.userCode && !input.id) {
-    throw new Error("Technicians require a user code.");
-  }
   if (!isTechnician && !input.email && !input.id) {
     throw new Error("Admins require an email.");
   }
   if (!input.id && isTechnician && !input.pin) {
-    throw new Error("Technicians require a 6-digit PIN on create.");
+    throw new Error("Technicians require a 4-digit PIN on create.");
   }
   if (!input.id && !isTechnician && !input.password) {
     throw new Error("Admins require a password on create.");
@@ -172,7 +169,7 @@ export async function saveUserAction(rawInput: unknown) {
     throw new Error("Set a password for this admin account.");
   }
   if (existing && input.role === Role.TECHNICIAN && !existing.pinHash && !input.pin) {
-    throw new Error("Set a 6-digit PIN for this technician account.");
+    throw new Error("Set a 4-digit PIN for this technician account.");
   }
 
   const passwordHash = input.password ? await bcrypt.hash(input.password, 12) : undefined;

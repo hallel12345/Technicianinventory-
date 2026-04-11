@@ -13,16 +13,14 @@ export async function technicianLoginAction(
   _prevState: AuthActionState,
   formData: FormData
 ): Promise<AuthActionState> {
-  const userCode = String(formData.get("userCode") ?? "").trim();
   const pin = String(formData.get("pin") ?? "").trim();
 
-  if (!userCode || !pin) {
-    return { error: "User code and PIN are required." };
+  if (!/^\d{4}$/.test(pin)) {
+    return { error: "A valid 4-digit PIN is required." };
   }
 
   try {
     await signIn("technician-pin", {
-      userCode,
       pin,
       redirectTo: "/inventory"
     });

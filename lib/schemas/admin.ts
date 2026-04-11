@@ -33,7 +33,7 @@ export const userSchema = z.object({
   userCode: z.string().optional().or(z.literal("")),
   officeId: z.string().nullable().optional(),
   password: z.string().min(8).optional(),
-  pin: z.string().regex(/^\d{6}$/).optional(),
+  pin: z.string().regex(/^\d{4}$/).optional(),
   isActive: z.boolean().default(true)
 });
 
