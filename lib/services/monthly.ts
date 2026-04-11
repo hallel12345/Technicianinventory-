@@ -62,7 +62,7 @@ export async function getRequiredTargetsForMonth(tx: MonthlyTx, month: number, y
     }),
     tx.truck.findMany({
       where: { isActive: true },
-      orderBy: [{ office: { name: "asc" } }, { licensePlate: "asc" }],
+      orderBy: [{ name: "asc" }, { licensePlate: "asc" }],
       select: {
         id: true,
         name: true,

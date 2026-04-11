@@ -27,7 +27,7 @@ export default async function AdminSettingsPage({
 
   const [offices, trucks, items, users, requiredTargets] = await Promise.all([
     db.office.findMany({ orderBy: { name: "asc" } }),
-    db.truck.findMany({ orderBy: [{ office: { name: "asc" } }, { licensePlate: "asc" }] }),
+    db.truck.findMany({ orderBy: [{ name: "asc" }, { licensePlate: "asc" }] }),
     db.inventoryItem.findMany({ orderBy: [{ sortOrder: "asc" }, { name: "asc" }] }),
     db.user.findMany({ orderBy: [{ role: "asc" }, { name: "asc" }] }),
     db.$transaction((tx) => getRequiredTargetsForMonth(tx, month, year))

@@ -39,7 +39,7 @@ export default async function AdminSubmissionsPage({
 
   const [offices, trucks, officeSubmissions, truckSubmissions] = await Promise.all([
     db.office.findMany({ where: { isActive: true }, orderBy: { name: "asc" } }),
-    db.truck.findMany({ where: { isActive: true }, orderBy: { licensePlate: "asc" } }),
+    db.truck.findMany({ where: { isActive: true }, orderBy: [{ name: "asc" }, { licensePlate: "asc" }] }),
     db.officeInventorySubmission.findMany({
       where: {
         month,
