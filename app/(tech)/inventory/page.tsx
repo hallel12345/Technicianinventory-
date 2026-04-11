@@ -22,7 +22,9 @@ export default async function InventoryPage() {
         id: true,
         name: true,
         licensePlate: true,
-        officeId: true
+        officeId: true,
+        registrationExpirationMonth: true,
+        registrationExpirationYear: true
       }
     }),
     db.inventoryItem.findMany({

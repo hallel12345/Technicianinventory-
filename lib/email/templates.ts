@@ -48,8 +48,36 @@ export function buildMonthlySummaryEmail(input: {
   completedOfficeCount: number;
   completedTruckCount: number;
   isFinal: boolean;
+  trucksDueForRegistrationThisMonth: MonthlySnapshotEntity[];
+  expiredRegistrationTrucks: MonthlySnapshotEntity[];
+  trucksMissingRegistrationData: MonthlySnapshotEntity[];
 }) {
   const monthLabel = formatMonthYear(input.month, input.year);
+  const registrationDueHtml = input.trucksDueForRegistrationThisMonth.length
+    ? `<ul style="margin:8px 0 0 18px;padding:0;color:#374151;">
+        ${input.trucksDueForRegistrationThisMonth
+          .map(
+            (truck) =>
+              `<li>${truck.name} (expires ${truck.registrationExpirationMonth}/${truck.registrationExpirationYear})</li>`
+          )
+          .join("")}
+      </ul>`
+    : `<p style="margin-top:8px;color:#374151;">No trucks expire this month.</p>`;
+  const expiredRegistrationHtml = input.expiredRegistrationTrucks.length
+    ? `<ul style="margin:8px 0 0 18px;padding:0;color:#7F1D1D;">
+        ${input.expiredRegistrationTrucks
+          .map(
+            (truck) =>
+              `<li>${truck.name} (expired ${truck.registrationExpirationMonth}/${truck.registrationExpirationYear})</li>`
+          )
+          .join("")}
+      </ul>`
+    : "";
+  const missingRegistrationHtml = input.trucksMissingRegistrationData.length
+    ? `<ul style="margin:8px 0 0 18px;padding:0;color:#7C2D12;">
+        ${input.trucksMissingRegistrationData.map((truck) => `<li>${truck.name}</li>`).join("")}
+      </ul>`
+    : "";
 
   const html = `
   <div style="font-family:Montserrat,Arial,sans-serif;background:#F6FAF2;padding:24px;">
@@ -75,6 +103,20 @@ export function buildMonthlySummaryEmail(input: {
       <h2 style="margin-top:24px;color:#434343;">Truck Inventory</h2>
       ${input.trucks.map(renderEntity).join("")}
 
+      <h2 style="margin-top:24px;color:#434343;">Truck Registration Due This Month</h2>
+      <p style="margin-top:6px;color:#4B5563;">Vehicles listed here expire this month and should be renewed before next month.</p>
+      ${registrationDueHtml}
+      ${
+        expiredRegistrationHtml
+          ? `<h3 style="margin-top:16px;color:#7F1D1D;font-size:15px;">Expired Registrations</h3>${expiredRegistrationHtml}`
+          : ""
+      }
+      ${
+        missingRegistrationHtml
+          ? `<h3 style="margin-top:16px;color:#7C2D12;font-size:15px;">Missing Registration Data</h3>${missingRegistrationHtml}`
+          : ""
+      }
+
       <p style="margin-top:28px;font-size:12px;color:#6B7280;">This email was generated automatically by the Pure Pest Inventory system.</p>
     </div>
   </div>`;
@@ -98,7 +140,30 @@ export function buildMonthlySummaryEmail(input: {
       const summary = `${truck.name} - ${truck.required ? (truck.submitted ? "Complete" : "Missing") : "Not required"}`;
       const notes = [truck.notes, truck.problemsReported, truck.missingDamagedNotes].filter(Boolean).join(" | ");
       return notes ? `${summary} (${notes})` : summary;
-    })
+    }),
+    "",
+    `Truck Registration Due This Month (${monthLabel}):`,
+    ...(input.trucksDueForRegistrationThisMonth.length
+      ? input.trucksDueForRegistrationThisMonth.map(
+          (truck) => `- ${truck.name} (expires ${truck.registrationExpirationMonth}/${truck.registrationExpirationYear})`
+        )
+      : ["- None"]),
+    ...(input.expiredRegistrationTrucks.length
+      ? [
+          "",
+          "Expired Registrations:",
+          ...input.expiredRegistrationTrucks.map(
+            (truck) => `- ${truck.name} (expired ${truck.registrationExpirationMonth}/${truck.registrationExpirationYear})`
+          )
+        ]
+      : []),
+    ...(input.trucksMissingRegistrationData.length
+      ? [
+          "",
+          "Missing Registration Data:",
+          ...input.trucksMissingRegistrationData.map((truck) => `- ${truck.name}`)
+        ]
+      : [])
   ].join("\n");
 
   return { html, text, monthLabel };

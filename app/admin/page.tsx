@@ -31,6 +31,32 @@ function oilProgressBarClass(state?: "green" | "yellow" | "red") {
   return "bg-emerald-500";
 }
 
+function registrationVariant(status?: string) {
+  if (status === "EXPIRED") {
+    return "danger" as const;
+  }
+  if (status === "DUE_THIS_MONTH") {
+    return "warning" as const;
+  }
+  if (status === "UP_TO_DATE") {
+    return "success" as const;
+  }
+  return "default" as const;
+}
+
+function registrationLabel(status?: string) {
+  if (status === "EXPIRED") {
+    return "Expired";
+  }
+  if (status === "DUE_THIS_MONTH") {
+    return "Due This Month";
+  }
+  if (status === "UP_TO_DATE") {
+    return "Up to Date";
+  }
+  return "Missing Data";
+}
+
 export default async function AdminDashboardPage({
   searchParams
 }: {
@@ -98,7 +124,7 @@ export default async function AdminDashboardPage({
         </div>
       </Card>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
         <Card>
           <CardDescription>Percent Complete</CardDescription>
           <CardTitle className="mt-1 text-3xl">{snapshot.percentComplete}%</CardTitle>
@@ -136,6 +162,11 @@ export default async function AdminDashboardPage({
           <p className="mt-2 text-xs text-gray-600">
             Sum of miles driven since prior submission across trucks this month.
           </p>
+        </Card>
+        <Card>
+          <CardDescription>Registrations Due This Month</CardDescription>
+          <CardTitle className="mt-1 text-2xl">{snapshot.trucksDueForRegistrationThisMonth.length}</CardTitle>
+          <p className="mt-2 text-xs text-gray-600">Renew these before next month.</p>
         </Card>
       </div>
 
@@ -220,6 +251,17 @@ export default async function AdminDashboardPage({
                       }`
                     : "Not submitted"}
                 </p>
+                <div className="mt-2 flex items-center justify-between gap-2 text-xs text-gray-700">
+                  <p>
+                    Registration expires:{" "}
+                    {truck.registrationExpirationMonth && truck.registrationExpirationYear
+                      ? `${truck.registrationExpirationMonth}/${truck.registrationExpirationYear}`
+                      : "-"}
+                  </p>
+                  <Badge variant={registrationVariant(truck.registrationStatus)}>
+                    {registrationLabel(truck.registrationStatus)}
+                  </Badge>
+                </div>
                 {truck.submitted ? (
                   <div className="mt-2 space-y-1 text-xs text-gray-700">
                     <p>Odometer: {truck.odometerMiles ?? 0} miles</p>
@@ -247,7 +289,7 @@ export default async function AdminDashboardPage({
                       </p>
                     </div>
                     <p>
-                      Last oil change date:{" "}
+                      Last oil change date (manual):{" "}
                       {truck.lastOilChangeDate ? format(truck.lastOilChangeDate, "MMM d, yyyy") : "-"}
                     </p>
                     <p>Maintenance check completed: {truck.maintenanceCheckCompleted ? "Yes" : "No"}</p>
@@ -268,6 +310,42 @@ export default async function AdminDashboardPage({
           </div>
         </Card>
       </div>
+
+      <Card>
+        <CardTitle>Registration Alerts</CardTitle>
+        <div className="mt-4 grid gap-4 sm:grid-cols-3">
+          <div>
+            <h3 className="text-sm font-semibold text-gray-700">Due This Month</h3>
+            <ul className="mt-2 space-y-1 text-sm text-gray-600">
+              {snapshot.trucksDueForRegistrationThisMonth.length ? (
+                snapshot.trucksDueForRegistrationThisMonth.map((truck) => <li key={truck.id}>- {truck.name}</li>)
+              ) : (
+                <li>None.</li>
+              )}
+            </ul>
+          </div>
+          <div>
+            <h3 className="text-sm font-semibold text-gray-700">Expired</h3>
+            <ul className="mt-2 space-y-1 text-sm text-gray-600">
+              {snapshot.expiredRegistrationTrucks.length ? (
+                snapshot.expiredRegistrationTrucks.map((truck) => <li key={truck.id}>- {truck.name}</li>)
+              ) : (
+                <li>None.</li>
+              )}
+            </ul>
+          </div>
+          <div>
+            <h3 className="text-sm font-semibold text-gray-700">Missing Data</h3>
+            <ul className="mt-2 space-y-1 text-sm text-gray-600">
+              {snapshot.trucksMissingRegistrationData.length ? (
+                snapshot.trucksMissingRegistrationData.map((truck) => <li key={truck.id}>- {truck.name}</li>)
+              ) : (
+                <li>None.</li>
+              )}
+            </ul>
+          </div>
+        </div>
+      </Card>
 
       <Card>
         <CardTitle>Missing Submissions</CardTitle>

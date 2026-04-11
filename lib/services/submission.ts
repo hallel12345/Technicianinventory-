@@ -60,6 +60,31 @@ export async function createTechnicianSubmission(input: TechnicianSubmissionInpu
         throw new SubmissionError("Selected truck is not available.");
       }
 
+      const hasStoredRegistrationInfo =
+        truck.registrationExpirationMonth !== null &&
+        truck.registrationExpirationMonth !== undefined &&
+        truck.registrationExpirationYear !== null &&
+        truck.registrationExpirationYear !== undefined;
+      const hasSubmittedRegistrationInfo =
+        validated.registrationExpirationMonth !== undefined &&
+        validated.registrationExpirationYear !== undefined;
+
+      if (!hasStoredRegistrationInfo && !hasSubmittedRegistrationInfo) {
+        throw new SubmissionError(
+          "Registration expiration month/year is required for this truck the first time."
+        );
+      }
+
+      if (!hasStoredRegistrationInfo && hasSubmittedRegistrationInfo) {
+        await tx.truck.update({
+          where: { id: truck.id },
+          data: {
+            registrationExpirationMonth: validated.registrationExpirationMonth,
+            registrationExpirationYear: validated.registrationExpirationYear
+          }
+        });
+      }
+
       if (branding?.photosRequired && (!validated.uploadedFileIds || !validated.uploadedFileIds.length)) {
         throw new SubmissionError("A photo is required before submitting.");
       }

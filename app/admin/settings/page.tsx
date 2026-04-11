@@ -45,7 +45,7 @@ export default async function AdminSettingsPage({
       <Card>
         <CardTitle>Admin Settings</CardTitle>
         <CardDescription className="mt-1">
-          Manage offices, trucks, inventory items, users, and monthly required overrides.
+          Manage offices, trucks (including registration expiration), inventory items, users, and monthly required overrides.
         </CardDescription>
       </Card>
 

@@ -11,6 +11,8 @@ export const inventoryCountSchema = z.object({
 const technicianSubmissionBaseSchema = z.object({
   officeId: z.string().min(1, "Office is required"),
   truckId: z.string().min(1, "Truck is required"),
+  registrationExpirationMonth: z.number().int().min(1).max(12).optional(),
+  registrationExpirationYear: z.number().int().min(2020).max(2100).optional(),
   odometerMiles: z
     .number({ invalid_type_error: "Enter whole miles" })
     .int("Mileage must be an integer")
@@ -34,6 +36,17 @@ const technicianSubmissionBaseSchema = z.object({
 
 export const technicianSubmissionSchema = technicianSubmissionBaseSchema
   .superRefine((value, ctx) => {
+    const hasRegistrationMonth = value.registrationExpirationMonth !== undefined;
+    const hasRegistrationYear = value.registrationExpirationYear !== undefined;
+
+    if (hasRegistrationMonth !== hasRegistrationYear) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Provide both registration month and year.",
+        path: ["registrationExpirationMonth"]
+      });
+    }
+
     const hasDuplicateOfficeItems =
       new Set(value.officeCounts.map((entry) => entry.itemId)).size !== value.officeCounts.length;
     const hasDuplicateTruckItems =

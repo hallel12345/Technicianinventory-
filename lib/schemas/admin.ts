@@ -8,14 +8,29 @@ export const officeSchema = z.object({
   requiredByDefault: z.boolean().default(true)
 });
 
-export const truckSchema = z.object({
-  id: z.string().optional(),
-  name: z.string().min(2),
-  licensePlate: z.string().min(2),
-  officeId: z.string().nullable().optional(),
-  isActive: z.boolean().default(true),
-  requiredByDefault: z.boolean().default(true)
-});
+export const truckSchema = z
+  .object({
+    id: z.string().optional(),
+    name: z.string().min(2),
+    licensePlate: z.string().min(2),
+    registrationExpirationMonth: z.number().int().min(1).max(12).nullable().optional(),
+    registrationExpirationYear: z.number().int().min(2020).max(2100).nullable().optional(),
+    officeId: z.string().nullable().optional(),
+    isActive: z.boolean().default(true),
+    requiredByDefault: z.boolean().default(true)
+  })
+  .superRefine((value, ctx) => {
+    const hasMonth = value.registrationExpirationMonth !== null && value.registrationExpirationMonth !== undefined;
+    const hasYear = value.registrationExpirationYear !== null && value.registrationExpirationYear !== undefined;
+
+    if (hasMonth !== hasYear) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Registration month and year must both be set, or both empty.",
+        path: ["registrationExpirationMonth"]
+      });
+    }
+  });
 
 export const inventoryItemSchema = z.object({
   id: z.string().optional(),

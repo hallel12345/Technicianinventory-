@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { toCsv } from "@/lib/csv";
 import { db } from "@/lib/db";
+import { getRegistrationStatus } from "@/lib/services/registration";
 import { getTruckMileageMetricsMap } from "@/lib/services/truck-metrics";
 import { getCurrentMonthYear } from "@/lib/time";
 
@@ -55,8 +56,7 @@ export async function GET(request: Request) {
       truckId: submission.truckId,
       month: submission.month,
       year: submission.year,
-      odometerMiles: submission.odometerMiles,
-      oilChangeCompleted: submission.oilChangeCompleted
+      odometerMiles: submission.odometerMiles
     }))
   );
 
@@ -71,6 +71,9 @@ export async function GET(request: Request) {
         submittedAt: submission.submittedAt.toISOString(),
         itemName: count.inventoryItem.name,
         quantity: count.quantity,
+        registrationExpirationMonth: null,
+        registrationExpirationYear: null,
+        registrationStatus: null,
         odometerMiles: null,
         previousOdometerMiles: null,
         milesDrivenSinceLast: null,
@@ -101,6 +104,14 @@ export async function GET(request: Request) {
         submittedAt: submission.submittedAt.toISOString(),
         itemName: count.inventoryItem.name,
         quantity: count.quantity,
+        registrationExpirationMonth: submission.truck.registrationExpirationMonth ?? null,
+        registrationExpirationYear: submission.truck.registrationExpirationYear ?? null,
+        registrationStatus: getRegistrationStatus({
+          expirationMonth: submission.truck.registrationExpirationMonth,
+          expirationYear: submission.truck.registrationExpirationYear,
+          month,
+          year
+        }),
         odometerMiles: submission.odometerMiles,
         previousOdometerMiles: mileageMetrics?.previousOdometerMiles ?? null,
         milesDrivenSinceLast: mileageMetrics?.milesDrivenSinceLast ?? null,

@@ -75,6 +75,8 @@ export async function saveTruckAction(rawInput: unknown) {
     update: {
       name: input.name,
       licensePlate: input.licensePlate,
+      registrationExpirationMonth: input.registrationExpirationMonth ?? null,
+      registrationExpirationYear: input.registrationExpirationYear ?? null,
       officeId: input.officeId ?? null,
       isActive: input.isActive,
       requiredByDefault: input.requiredByDefault
@@ -82,6 +84,8 @@ export async function saveTruckAction(rawInput: unknown) {
     create: {
       name: input.name,
       licensePlate: input.licensePlate,
+      registrationExpirationMonth: input.registrationExpirationMonth ?? null,
+      registrationExpirationYear: input.registrationExpirationYear ?? null,
       officeId: input.officeId ?? null,
       isActive: input.isActive,
       requiredByDefault: input.requiredByDefault

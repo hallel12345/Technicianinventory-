@@ -1,6 +1,7 @@
 import { Prisma, RequirementTargetType } from "@prisma/client";
 
 import { db } from "@/lib/db";
+import { getRegistrationStatus, type RegistrationStatus } from "@/lib/services/registration";
 import { getTruckMileageMetricsMap } from "@/lib/services/truck-metrics";
 import { monthKey } from "@/lib/time";
 
@@ -12,11 +13,19 @@ type RequiredEntityStatus = {
   required: boolean;
 };
 
+type RequiredTruckStatus = RequiredEntityStatus & {
+  registrationExpirationMonth: number | null;
+  registrationExpirationYear: number | null;
+};
+
 export type MonthlySnapshotEntity = RequiredEntityStatus & {
   submitted: boolean;
   submissionId?: string;
   technicianName?: string;
   submittedAt?: Date;
+  registrationExpirationMonth?: number | null;
+  registrationExpirationYear?: number | null;
+  registrationStatus?: RegistrationStatus;
   odometerMiles?: number;
   trackingStartOdometerMiles?: number | null;
   previousOdometerMiles?: number | null;
@@ -59,6 +68,8 @@ export async function getRequiredTargetsForMonth(tx: MonthlyTx, month: number, y
         name: true,
         licensePlate: true,
         requiredByDefault: true,
+        registrationExpirationMonth: true,
+        registrationExpirationYear: true,
         office: { select: { name: true } }
       }
     }),
@@ -85,10 +96,12 @@ export async function getRequiredTargetsForMonth(tx: MonthlyTx, month: number, y
     required: officeOverrideMap.get(office.id) ?? office.requiredByDefault
   }));
 
-  const truckTargets: RequiredEntityStatus[] = trucks.map((truck) => ({
+  const truckTargets: RequiredTruckStatus[] = trucks.map((truck) => ({
     id: truck.id,
     name: `${truck.name} - ${truck.licensePlate}${truck.office?.name ? ` (${truck.office.name})` : ""}`,
-    required: truckOverrideMap.get(truck.id) ?? truck.requiredByDefault
+    required: truckOverrideMap.get(truck.id) ?? truck.requiredByDefault,
+    registrationExpirationMonth: truck.registrationExpirationMonth ?? null,
+    registrationExpirationYear: truck.registrationExpirationYear ?? null
   }));
 
   return { officeTargets, truckTargets };
@@ -209,12 +222,21 @@ export async function getMonthlySnapshot(month: number, year: number) {
   const trucks: MonthlySnapshotEntity[] = entities.truckTargets.map((truck) => {
     const submission = truckSubmissionMap.get(truck.id);
     const mileageMetrics = submission ? truckMileageMap.get(submission.id) : undefined;
+    const registrationStatus = getRegistrationStatus({
+      expirationMonth: truck.registrationExpirationMonth,
+      expirationYear: truck.registrationExpirationYear,
+      month,
+      year
+    });
     return {
       ...truck,
       submitted: Boolean(submission),
       submissionId: submission?.id,
       technicianName: submission?.technicianName,
       submittedAt: submission?.submittedAt,
+      registrationExpirationMonth: truck.registrationExpirationMonth,
+      registrationExpirationYear: truck.registrationExpirationYear,
+      registrationStatus,
       odometerMiles: submission?.odometerMiles,
       trackingStartOdometerMiles: mileageMetrics?.trackingStartOdometerMiles,
       previousOdometerMiles: mileageMetrics?.previousOdometerMiles,
@@ -267,6 +289,11 @@ export async function getMonthlySnapshot(month: number, year: number) {
     totalCompleted,
     percentComplete,
     isComplete,
+    trucksDueForRegistrationThisMonth: trucks.filter(
+      (truck) => truck.registrationStatus === "DUE_THIS_MONTH"
+    ),
+    expiredRegistrationTrucks: trucks.filter((truck) => truck.registrationStatus === "EXPIRED"),
+    trucksMissingRegistrationData: trucks.filter((truck) => truck.registrationStatus === "MISSING"),
     missingOffices: requiredOffices.filter((office) => !office.submitted),
     missingTrucks: requiredTrucks.filter((truck) => !truck.submitted)
   };

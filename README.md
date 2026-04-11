@@ -26,6 +26,10 @@ Technician flow (mobile-first):
 8. Submit
 9. Success confirmation
 
+Registration capture (one-time per truck):
+- If a truck is missing registration expiration data, technicians are prompted once to enter expiration month/year.
+- That registration data is stored on the truck record and reused for future months.
+
 Admin flow:
 - Dashboard completion monitoring by month
 - Missing submission tracking
@@ -49,6 +53,7 @@ Admin flow:
 - Truck submissions track last oil-change date for maintenance history visibility
 - Miles driven since prior submission are computed for admin monitoring/export
 - Oil-change progress is shown on admin dashboard as a 5,000-mile green-to-red progress bar that auto-resets each cycle
+- Monthly summary emails include trucks whose registration expires in the current month, plus expired/missing registration data
 
 ## Project Structure
 - `app/` routes, layouts, API routes

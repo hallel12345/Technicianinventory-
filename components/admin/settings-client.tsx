@@ -28,6 +28,8 @@ type Truck = {
   id: string;
   name: string;
   licensePlate: string;
+  registrationExpirationMonth: number | null;
+  registrationExpirationYear: number | null;
   officeId: string | null;
   isActive: boolean;
   requiredByDefault: boolean;
@@ -53,6 +55,16 @@ type User = {
 
 function boolText(value: boolean) {
   return value ? "true" : "false";
+}
+
+function parseNullableNumber(value: FormDataEntryValue | null) {
+  const normalized = String(value ?? "").trim();
+  if (!normalized) {
+    return null;
+  }
+
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : null;
 }
 
 export function SettingsClient({
@@ -178,7 +190,7 @@ export function SettingsClient({
           {trucks.map((truck) => (
             <form
               key={truck.id}
-              className="grid gap-2 rounded-xl border border-gray-200 p-3 sm:grid-cols-7"
+              className="grid gap-2 rounded-xl border border-gray-200 p-3 sm:grid-cols-9"
               onSubmit={(event) => {
                 event.preventDefault();
                 const form = new FormData(event.currentTarget);
@@ -189,6 +201,8 @@ export function SettingsClient({
                       id: truck.id,
                       name: String(form.get("name") ?? ""),
                       licensePlate: String(form.get("licensePlate") ?? ""),
+                      registrationExpirationMonth: parseNullableNumber(form.get("registrationExpirationMonth")),
+                      registrationExpirationYear: parseNullableNumber(form.get("registrationExpirationYear")),
                       officeId: (String(form.get("officeId") ?? "") || null) as string | null,
                       isActive: String(form.get("isActive") ?? "true") === "true",
                       requiredByDefault: String(form.get("requiredByDefault") ?? "true") === "true"
@@ -199,6 +213,22 @@ export function SettingsClient({
             >
               <Input name="name" defaultValue={truck.name} />
               <Input name="licensePlate" defaultValue={truck.licensePlate} />
+              <Input
+                name="registrationExpirationMonth"
+                type="number"
+                min={1}
+                max={12}
+                placeholder="Reg month"
+                defaultValue={truck.registrationExpirationMonth ?? ""}
+              />
+              <Input
+                name="registrationExpirationYear"
+                type="number"
+                min={2020}
+                max={2100}
+                placeholder="Reg year"
+                defaultValue={truck.registrationExpirationYear ?? ""}
+              />
               <Select name="officeId" defaultValue={truck.officeId ?? ""}>
                 <option value="">Unassigned</option>
                 {offices.map((office) => (
@@ -234,7 +264,7 @@ export function SettingsClient({
           ))}
 
           <form
-            className="grid gap-2 rounded-xl border border-dashed border-gray-300 p-3 sm:grid-cols-4"
+            className="grid gap-2 rounded-xl border border-dashed border-gray-300 p-3 sm:grid-cols-6"
             onSubmit={(event) => {
               event.preventDefault();
               const form = new FormData(event.currentTarget);
@@ -244,6 +274,8 @@ export function SettingsClient({
                   saveTruckAction({
                     name: String(form.get("name") ?? ""),
                     licensePlate: String(form.get("licensePlate") ?? ""),
+                    registrationExpirationMonth: parseNullableNumber(form.get("registrationExpirationMonth")),
+                    registrationExpirationYear: parseNullableNumber(form.get("registrationExpirationYear")),
                     officeId: (String(form.get("officeId") ?? "") || null) as string | null,
                     isActive: true,
                     requiredByDefault: true
@@ -254,6 +286,8 @@ export function SettingsClient({
           >
             <Input name="name" placeholder="Truck name" required />
             <Input name="licensePlate" placeholder="License plate" required />
+            <Input name="registrationExpirationMonth" type="number" min={1} max={12} placeholder="Reg month" />
+            <Input name="registrationExpirationYear" type="number" min={2020} max={2100} placeholder="Reg year" />
             <Select name="officeId" defaultValue="">
               <option value="">Assign office (optional)</option>
               {offices.map((office) => (

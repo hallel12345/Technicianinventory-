@@ -94,7 +94,10 @@ export async function sendEmailLog(emailLogId: string) {
     requiredTruckCount: snapshot.requiredTruckCount,
     completedOfficeCount: snapshot.completedOfficeCount,
     completedTruckCount: snapshot.completedTruckCount,
-    isFinal: log.type === EmailLogType.AUTO_FINAL
+    isFinal: log.type === EmailLogType.AUTO_FINAL,
+    trucksDueForRegistrationThisMonth: snapshot.trucksDueForRegistrationThisMonth,
+    expiredRegistrationTrucks: snapshot.expiredRegistrationTrucks,
+    trucksMissingRegistrationData: snapshot.trucksMissingRegistrationData
   });
 
   const subject =

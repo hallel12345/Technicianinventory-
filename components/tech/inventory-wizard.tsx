@@ -16,7 +16,14 @@ import { CounterInput } from "@/components/tech/counter-input";
 import { StepProgress } from "@/components/tech/step-progress";
 
 type OfficeOption = { id: string; name: string };
-type TruckOption = { id: string; name: string; licensePlate: string; officeId: string | null };
+type TruckOption = {
+  id: string;
+  name: string;
+  licensePlate: string;
+  officeId: string | null;
+  registrationExpirationMonth: number | null;
+  registrationExpirationYear: number | null;
+};
 type ItemOption = { id: string; name: string };
 
 const STEP_LABELS = [
@@ -58,6 +65,8 @@ export function InventoryWizard({
     defaultValues: {
       officeId: "",
       truckId: "",
+      registrationExpirationMonth: undefined,
+      registrationExpirationYear: undefined,
       odometerMiles: 0,
       oilChangeCompleted: false,
       maintenanceCheckCompleted: false,
@@ -92,6 +101,8 @@ export function InventoryWizard({
       const parsed = JSON.parse(saved) as TechnicianSubmissionInput;
       form.reset({
         ...parsed,
+        registrationExpirationMonth: parsed.registrationExpirationMonth,
+        registrationExpirationYear: parsed.registrationExpirationYear,
         odometerMiles: parsed.odometerMiles ?? 0,
         oilChangeCompleted: parsed.oilChangeCompleted ?? false,
         maintenanceCheckCompleted: parsed.maintenanceCheckCompleted ?? false,
@@ -114,6 +125,30 @@ export function InventoryWizard({
 
   const officeCounts = form.watch("officeCounts");
   const truckCounts = form.watch("truckCounts");
+  const selectedTruckId = form.watch("truckId");
+  const selectedTruck = useMemo(
+    () => trucks.find((truck) => truck.id === selectedTruckId) ?? null,
+    [selectedTruckId, trucks]
+  );
+  const needsRegistrationInfo = Boolean(
+    selectedTruck &&
+      (!selectedTruck.registrationExpirationMonth || !selectedTruck.registrationExpirationYear)
+  );
+
+  useEffect(() => {
+    if (!selectedTruck) {
+      return;
+    }
+
+    if (selectedTruck.registrationExpirationMonth && selectedTruck.registrationExpirationYear) {
+      form.setValue("registrationExpirationMonth", selectedTruck.registrationExpirationMonth);
+      form.setValue("registrationExpirationYear", selectedTruck.registrationExpirationYear);
+      return;
+    }
+
+    form.setValue("registrationExpirationMonth", undefined);
+    form.setValue("registrationExpirationYear", undefined);
+  }, [form, selectedTruck]);
 
   async function uploadFiles(files: FileList | null) {
     if (!files?.length) {
@@ -169,6 +204,8 @@ export function InventoryWizard({
 
     if (step === 5) {
       const valid = await form.trigger([
+        "registrationExpirationMonth",
+        "registrationExpirationYear",
         "odometerMiles",
         "technicianName",
         "notes",
@@ -294,6 +331,39 @@ export function InventoryWizard({
         <Card>
           <CardTitle>Details & Mileage</CardTitle>
           <div className="mt-4 space-y-3">
+            {needsRegistrationInfo ? (
+              <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+                First-time setup: this truck needs registration expiration entered once.
+              </div>
+            ) : null}
+            {needsRegistrationInfo ? (
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">Registration Expires Month</label>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={12}
+                    step={1}
+                    {...form.register("registrationExpirationMonth", { valueAsNumber: true })}
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">Registration Expires Year</label>
+                  <Input
+                    type="number"
+                    min={2020}
+                    max={2100}
+                    step={1}
+                    {...form.register("registrationExpirationYear", { valueAsNumber: true })}
+                  />
+                </div>
+                <p className="sm:col-span-2 text-sm text-red-600">
+                  {form.formState.errors.registrationExpirationMonth?.message ||
+                    form.formState.errors.registrationExpirationYear?.message}
+                </p>
+              </div>
+            ) : null}
             <div>
               <label className="mb-1 block text-sm font-medium text-gray-700">Truck Odometer (miles)</label>
               <Input
@@ -362,6 +432,14 @@ export function InventoryWizard({
             </p>
             <p>
               <strong>Truck Odometer:</strong> {form.getValues("odometerMiles")} miles
+            </p>
+            <p>
+              <strong>Registration Expires:</strong>{" "}
+              {selectedTruck?.registrationExpirationMonth && selectedTruck?.registrationExpirationYear
+                ? `${selectedTruck.registrationExpirationMonth}/${selectedTruck.registrationExpirationYear}`
+                : form.getValues("registrationExpirationMonth") && form.getValues("registrationExpirationYear")
+                  ? `${form.getValues("registrationExpirationMonth")}/${form.getValues("registrationExpirationYear")}`
+                  : "-"}
             </p>
             <p>
               <strong>Office Item Total Units:</strong>{" "}

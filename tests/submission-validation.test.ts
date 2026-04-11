@@ -94,4 +94,20 @@ describe("technicianSubmissionSchema", () => {
 
     expect(result.success).toBe(false);
   });
+
+  it("requires registration month and year together", () => {
+    const result = technicianSubmissionSchema.safeParse({
+      officeId: "office-1",
+      truckId: "truck-1",
+      registrationExpirationMonth: 4,
+      odometerMiles: 1000,
+      oilChangeCompleted: false,
+      maintenanceCheckCompleted: false,
+      technicianName: "Tester",
+      officeCounts: [{ itemId: "a", quantity: 1 }],
+      truckCounts: [{ itemId: "b", quantity: 1 }]
+    });
+
+    expect(result.success).toBe(false);
+  });
 });
