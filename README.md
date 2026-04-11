@@ -21,7 +21,7 @@ Technician flow (mobile-first):
 3. Select truck by license plate
 4. Enter office inventory counts
 5. Enter truck inventory counts
-6. Enter truck odometer miles + oil/maintenance checks
+6. Enter truck odometer miles
 7. Review
 8. Submit
 9. Success confirmation
@@ -48,6 +48,7 @@ Admin flow:
 - Truck submissions track odometer miles, oil-change completion, maintenance checks, and notes
 - Truck submissions track last oil-change date for maintenance history visibility
 - Miles driven since prior submission are computed for admin monitoring/export
+- Oil-change progress is shown on admin dashboard as a 5,000-mile green-to-red progress bar that auto-resets each cycle
 
 ## Project Structure
 - `app/` routes, layouts, API routes

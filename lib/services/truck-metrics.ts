@@ -1,12 +1,17 @@
 import type { Prisma } from "@prisma/client";
 
-const OIL_CHANGE_INTERVAL_MILES = 3000;
+export const OIL_CHANGE_INTERVAL_MILES = 5000;
 
 type TruckMetricsClient = Pick<Prisma.TransactionClient, "truckInventorySubmission">;
 
 export type TruckMileageMetrics = {
+  trackingStartOdometerMiles: number | null;
   previousOdometerMiles: number | null;
   milesDrivenSinceLast: number | null;
+  milesIntoOilCycle: number | null;
+  milesUntilOilChange: number | null;
+  oilChangeProgressPercent: number | null;
+  oilChangeProgressState: "green" | "yellow" | "red";
   oilChangeDue: boolean;
 };
 
@@ -16,7 +21,6 @@ type TruckSubmissionForMetrics = {
   month: number;
   year: number;
   odometerMiles: number;
-  oilChangeCompleted?: boolean;
 };
 
 export function calculateMilesDrivenSinceLast(
@@ -31,11 +35,54 @@ export function calculateMilesDrivenSinceLast(
   return delta >= 0 ? delta : null;
 }
 
-export function isOilChangeDue(milesDrivenSinceLast: number | null, oilChangeCompleted?: boolean) {
-  if (oilChangeCompleted) {
-    return false;
+export function calculateOilCycleProgress(
+  currentOdometerMiles: number,
+  trackingStartOdometerMiles?: number | null
+) {
+  if (trackingStartOdometerMiles === null || trackingStartOdometerMiles === undefined) {
+    return {
+      milesIntoOilCycle: null,
+      milesUntilOilChange: null,
+      oilChangeProgressPercent: null
+    };
   }
-  return milesDrivenSinceLast !== null && milesDrivenSinceLast >= OIL_CHANGE_INTERVAL_MILES;
+
+  const milesSinceTrackingStart = currentOdometerMiles - trackingStartOdometerMiles;
+  if (milesSinceTrackingStart < 0) {
+    return {
+      milesIntoOilCycle: null,
+      milesUntilOilChange: null,
+      oilChangeProgressPercent: null
+    };
+  }
+
+  const milesIntoOilCycle = milesSinceTrackingStart % OIL_CHANGE_INTERVAL_MILES;
+  const oilChangeProgressPercent = Math.round((milesIntoOilCycle / OIL_CHANGE_INTERVAL_MILES) * 100);
+  const milesUntilOilChange =
+    milesIntoOilCycle === 0 ? OIL_CHANGE_INTERVAL_MILES : OIL_CHANGE_INTERVAL_MILES - milesIntoOilCycle;
+
+  return {
+    milesIntoOilCycle,
+    milesUntilOilChange,
+    oilChangeProgressPercent
+  };
+}
+
+export function getOilProgressState(percent: number | null): "green" | "yellow" | "red" {
+  if (percent === null) {
+    return "green";
+  }
+  if (percent >= 85) {
+    return "red";
+  }
+  if (percent >= 60) {
+    return "yellow";
+  }
+  return "green";
+}
+
+export function isOilChangeDueByProgress(percent: number | null) {
+  return percent !== null && percent >= 85;
 }
 
 export async function getTruckMileageMetricsMap(
@@ -52,16 +99,31 @@ export async function getTruckMileageMetricsMap(
         orderBy: [{ year: "desc" }, { month: "desc" }],
         select: { odometerMiles: true }
       });
+      const firstRecorded = await client.truckInventorySubmission.findFirst({
+        where: {
+          truckId: submission.truckId
+        },
+        orderBy: [{ year: "asc" }, { month: "asc" }],
+        select: { odometerMiles: true }
+      });
 
       const previousOdometerMiles = previous?.odometerMiles ?? null;
+      const trackingStartOdometerMiles = firstRecorded?.odometerMiles ?? null;
       const milesDrivenSinceLast = calculateMilesDrivenSinceLast(submission.odometerMiles, previousOdometerMiles);
+      const oilCycleProgress = calculateOilCycleProgress(submission.odometerMiles, trackingStartOdometerMiles);
+      const oilChangeProgressState = getOilProgressState(oilCycleProgress.oilChangeProgressPercent);
 
       return [
         submission.id,
         {
+          trackingStartOdometerMiles,
           previousOdometerMiles,
           milesDrivenSinceLast,
-          oilChangeDue: isOilChangeDue(milesDrivenSinceLast, submission.oilChangeCompleted)
+          milesIntoOilCycle: oilCycleProgress.milesIntoOilCycle,
+          milesUntilOilChange: oilCycleProgress.milesUntilOilChange,
+          oilChangeProgressPercent: oilCycleProgress.oilChangeProgressPercent,
+          oilChangeProgressState,
+          oilChangeDue: isOilChangeDueByProgress(oilCycleProgress.oilChangeProgressPercent)
         } satisfies TruckMileageMetrics
       ] as const;
     })
@@ -69,4 +131,3 @@ export async function getTruckMileageMetricsMap(
 
   return new Map(metrics);
 }
-

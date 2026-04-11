@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { calculateMilesDrivenSinceLast, isOilChangeDue } from "@/lib/services/truck-metrics";
+import {
+  calculateMilesDrivenSinceLast,
+  calculateOilCycleProgress,
+  getOilProgressState,
+  isOilChangeDueByProgress
+} from "@/lib/services/truck-metrics";
 
 describe("truck mileage metrics", () => {
   it("calculates miles driven when odometer increases", () => {
@@ -11,11 +16,23 @@ describe("truck mileage metrics", () => {
     expect(calculateMilesDrivenSinceLast(125000, null)).toBeNull();
   });
 
-  it("flags oil change due at interval when not completed", () => {
-    expect(isOilChangeDue(3000, false)).toBe(true);
-    expect(isOilChangeDue(4500, false)).toBe(true);
-    expect(isOilChangeDue(2800, false)).toBe(false);
-    expect(isOilChangeDue(4500, true)).toBe(false);
+  it("computes 5k oil cycle progress and auto-reset behavior", () => {
+    const at4500 = calculateOilCycleProgress(104500, 100000);
+    expect(at4500.milesIntoOilCycle).toBe(4500);
+    expect(at4500.milesUntilOilChange).toBe(500);
+    expect(at4500.oilChangeProgressPercent).toBe(90);
+
+    const resetAt5000 = calculateOilCycleProgress(105000, 100000);
+    expect(resetAt5000.milesIntoOilCycle).toBe(0);
+    expect(resetAt5000.milesUntilOilChange).toBe(5000);
+    expect(resetAt5000.oilChangeProgressPercent).toBe(0);
+  });
+
+  it("maps progress percent to state and due flag", () => {
+    expect(getOilProgressState(20)).toBe("green");
+    expect(getOilProgressState(70)).toBe("yellow");
+    expect(getOilProgressState(90)).toBe("red");
+    expect(isOilChangeDueByProgress(90)).toBe(true);
+    expect(isOilChangeDueByProgress(70)).toBe(false);
   });
 });
-

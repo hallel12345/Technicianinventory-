@@ -18,8 +18,13 @@ export type MonthlySnapshotEntity = RequiredEntityStatus & {
   technicianName?: string;
   submittedAt?: Date;
   odometerMiles?: number;
+  trackingStartOdometerMiles?: number | null;
   previousOdometerMiles?: number | null;
   milesDrivenSinceLast?: number | null;
+  milesIntoOilCycle?: number | null;
+  milesUntilOilChange?: number | null;
+  oilChangeProgressPercent?: number | null;
+  oilChangeProgressState?: "green" | "yellow" | "red";
   oilChangeCompleted?: boolean;
   maintenanceCheckCompleted?: boolean;
   lastOilChangeDate?: Date | null;
@@ -179,8 +184,7 @@ export async function getMonthlySnapshot(month: number, year: number) {
       truckId: submission.truckId,
       month: submission.month,
       year: submission.year,
-      odometerMiles: submission.odometerMiles,
-      oilChangeCompleted: submission.oilChangeCompleted
+      odometerMiles: submission.odometerMiles
     }))
   );
 
@@ -212,8 +216,13 @@ export async function getMonthlySnapshot(month: number, year: number) {
       technicianName: submission?.technicianName,
       submittedAt: submission?.submittedAt,
       odometerMiles: submission?.odometerMiles,
+      trackingStartOdometerMiles: mileageMetrics?.trackingStartOdometerMiles,
       previousOdometerMiles: mileageMetrics?.previousOdometerMiles,
       milesDrivenSinceLast: mileageMetrics?.milesDrivenSinceLast,
+      milesIntoOilCycle: mileageMetrics?.milesIntoOilCycle,
+      milesUntilOilChange: mileageMetrics?.milesUntilOilChange,
+      oilChangeProgressPercent: mileageMetrics?.oilChangeProgressPercent,
+      oilChangeProgressState: mileageMetrics?.oilChangeProgressState,
       oilChangeCompleted: submission?.oilChangeCompleted,
       maintenanceCheckCompleted: submission?.maintenanceCheckCompleted,
       lastOilChangeDate: submission?.lastOilChangeDate,

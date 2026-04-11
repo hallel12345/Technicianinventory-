@@ -21,6 +21,16 @@ function parseMonthYear(searchParams?: { month?: string; year?: string }) {
   };
 }
 
+function oilProgressBarClass(state?: "green" | "yellow" | "red") {
+  if (state === "red") {
+    return "bg-red-500";
+  }
+  if (state === "yellow") {
+    return "bg-amber-400";
+  }
+  return "bg-emerald-500";
+}
+
 export default async function AdminDashboardPage({
   searchParams
 }: {
@@ -219,14 +229,30 @@ export default async function AdminDashboardPage({
                         ? `${truck.milesDrivenSinceLast} miles`
                         : "N/A"}
                     </p>
-                    <p>Oil change completed: {truck.oilChangeCompleted ? "Yes" : "No"}</p>
+                    <div className="mt-2">
+                      <div className="mb-1 flex items-center justify-between">
+                        <p className="font-medium text-gray-800">Oil Change Progress</p>
+                        <p>
+                          {truck.oilChangeProgressPercent ?? 0}% ({truck.milesIntoOilCycle ?? 0}/5000 mi)
+                        </p>
+                      </div>
+                      <div className="h-2 w-full overflow-hidden rounded-full bg-gray-200">
+                        <div
+                          className={`h-full rounded-full transition-all ${oilProgressBarClass(truck.oilChangeProgressState)}`}
+                          style={{ width: `${truck.oilChangeProgressPercent ?? 0}%` }}
+                        />
+                      </div>
+                      <p className="mt-1">
+                        Miles until next oil change: {truck.milesUntilOilChange ?? "N/A"}
+                      </p>
+                    </div>
                     <p>
                       Last oil change date:{" "}
                       {truck.lastOilChangeDate ? format(truck.lastOilChangeDate, "MMM d, yyyy") : "-"}
                     </p>
                     <p>Maintenance check completed: {truck.maintenanceCheckCompleted ? "Yes" : "No"}</p>
                     <p>Maintenance notes: {truck.maintenanceNotes || "-"}</p>
-                    {truck.oilChangeDue ? <p className="font-semibold text-amber-700">Oil change likely due.</p> : null}
+                    {truck.oilChangeDue ? <p className="font-semibold text-red-700">Oil change due soon.</p> : null}
                   </div>
                 ) : null}
                 {truck.submissionId ? (
