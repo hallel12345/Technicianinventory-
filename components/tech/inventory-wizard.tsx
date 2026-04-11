@@ -35,8 +35,91 @@ const STEP_LABELS = [
   "Review"
 ];
 
+const COUNTING_RULE_TEXT =
+  "Count unopened bottles, bags, and boxes only. Exception: Contrac Blox may include partial buckets.";
+
 function mapCounts(items: ItemOption[]) {
   return items.map((item) => ({ itemId: item.id, quantity: 0 }));
+}
+
+function normalizeItemName(name: string) {
+  return name.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+function isContracBloxItem(name: string) {
+  return normalizeItemName(name) === "contrac blox";
+}
+
+function getInventoryDisplayName(name: string) {
+  const normalized = normalizeItemName(name);
+
+  if (normalized === "bifen i/t") {
+    return "Bifen I/T (Bags)";
+  }
+  if (normalized === "contrac blox") {
+    return "Contrac Blox (Buckets)";
+  }
+  if (normalized === "demand cs") {
+    return "Demand CS (Bottles)";
+  }
+  if (normalized === "niban") {
+    return "Niban (Boxes)";
+  }
+  if (normalized === "pro flex") {
+    return "Pro Flex (Bottles)";
+  }
+  if (normalized === "tandem") {
+    return "Tandem (Bottles)";
+  }
+  if (normalized === "typhoons") {
+    return "Typhoons (Backpack)";
+  }
+
+  return name;
+}
+
+function parsePartialBucketAmount(value: string | undefined) {
+  const normalized = String(value ?? "").trim();
+  if (!normalized) {
+    return null;
+  }
+
+  const parsed = Number(normalized);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return null;
+  }
+
+  return Math.round(parsed * 100) / 100;
+}
+
+function getPartialBucketSummary(
+  partialBuckets: Record<string, string>,
+  officeItems: ItemOption[],
+  truckItems: ItemOption[]
+) {
+  const segments: string[] = [];
+
+  for (const item of officeItems) {
+    if (!isContracBloxItem(item.name)) {
+      continue;
+    }
+    const amount = parsePartialBucketAmount(partialBuckets[`office:${item.id}`]);
+    if (amount !== null) {
+      segments.push(`Office/Shop ${getInventoryDisplayName(item.name)}: ${amount}`);
+    }
+  }
+
+  for (const item of truckItems) {
+    if (!isContracBloxItem(item.name)) {
+      continue;
+    }
+    const amount = parsePartialBucketAmount(partialBuckets[`truck:${item.id}`]);
+    if (amount !== null) {
+      segments.push(`Truck ${getInventoryDisplayName(item.name)}: ${amount}`);
+    }
+  }
+
+  return segments.join("; ");
 }
 
 export function InventoryWizard({
@@ -57,6 +140,7 @@ export function InventoryWizard({
   const router = useRouter();
   const [step, setStep] = useState(1);
   const [uploadedFiles, setUploadedFiles] = useState<Array<{ id: string; name: string }>>([]);
+  const [partialBuckets, setPartialBuckets] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -98,7 +182,9 @@ export function InventoryWizard({
     }
 
     try {
-      const parsed = JSON.parse(saved) as TechnicianSubmissionInput;
+      const parsed = JSON.parse(saved) as TechnicianSubmissionInput & {
+        partialBuckets?: Record<string, string>;
+      };
       form.reset({
         ...parsed,
         registrationExpirationMonth: parsed.registrationExpirationMonth,
@@ -110,6 +196,7 @@ export function InventoryWizard({
         maintenanceNotes: parsed.maintenanceNotes ?? "",
         uploadedFileIds: parsed.uploadedFileIds ?? []
       });
+      setPartialBuckets(parsed.partialBuckets ?? {});
     } catch {
       // ignore bad local draft data
     }
@@ -117,11 +204,17 @@ export function InventoryWizard({
 
   useEffect(() => {
     const subscription = form.watch((values) => {
-      localStorage.setItem(draftKey, JSON.stringify(values));
+      localStorage.setItem(
+        draftKey,
+        JSON.stringify({
+          ...values,
+          partialBuckets
+        })
+      );
     });
 
     return () => subscription.unsubscribe();
-  }, [draftKey, form]);
+  }, [draftKey, form, partialBuckets]);
 
   const officeCounts = form.watch("officeCounts");
   const truckCounts = form.watch("truckCounts");
@@ -133,6 +226,10 @@ export function InventoryWizard({
   const needsRegistrationInfo = Boolean(
     selectedTruck &&
       (!selectedTruck.registrationExpirationMonth || !selectedTruck.registrationExpirationYear)
+  );
+  const partialBucketSummary = useMemo(
+    () => getPartialBucketSummary(partialBuckets, officeItems, truckItems),
+    [partialBuckets, officeItems, truckItems]
   );
 
   useEffect(() => {
@@ -228,10 +325,15 @@ export function InventoryWizard({
   function submitFinal() {
     setError(null);
     const values = form.getValues();
+    const partialBucketNote = partialBucketSummary
+      ? `Contrac Blox partial buckets (exception to unopened-only rule): ${partialBucketSummary}`
+      : "";
+    const mergedNotes = [values.notes?.trim(), partialBucketNote].filter(Boolean).join("\n\n");
 
     startTransition(async () => {
       const response = await submitTechnicianInventoryAction({
         ...values,
+        notes: mergedNotes,
         uploadedFileIds: uploadedFiles.map((file) => file.id)
       });
 
@@ -252,6 +354,10 @@ export function InventoryWizard({
         <CardDescription className="mt-1">
           Complete office and truck counts for this month. Progress is auto-saved on this device.
         </CardDescription>
+        <div className="mt-3 rounded-xl border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">
+          <p className="font-semibold">Counting rule</p>
+          <p className="mt-1">{COUNTING_RULE_TEXT}</p>
+        </div>
         <div className="mt-4">
           <StepProgress current={step} total={STEP_LABELS.length} labels={STEP_LABELS} />
         </div>
@@ -296,15 +402,39 @@ export function InventoryWizard({
       {step === 3 ? (
         <Card>
           <CardTitle>Office / Shop Inventory</CardTitle>
-          <CardDescription className="mt-1">Enter counts for office/shop items.</CardDescription>
+          <CardDescription className="mt-1">
+            Enter counts for office/shop items. {COUNTING_RULE_TEXT}
+          </CardDescription>
           <div className="mt-4 grid gap-3">
             {officeItems.map((item, index) => (
-              <CounterInput
-                key={item.id}
-                label={item.name}
-                value={officeCounts[index]?.quantity ?? 0}
-                onChange={(quantity) => form.setValue(`officeCounts.${index}.quantity`, quantity)}
-              />
+              <div key={item.id}>
+                <CounterInput
+                  label={getInventoryDisplayName(item.name)}
+                  value={officeCounts[index]?.quantity ?? 0}
+                  onChange={(quantity) => form.setValue(`officeCounts.${index}.quantity`, quantity)}
+                />
+                {isContracBloxItem(item.name) ? (
+                  <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 p-2">
+                    <label className="mb-1 block text-xs font-semibold text-amber-900">
+                      Partial Buckets (Contrac Blox exception)
+                    </label>
+                    <Input
+                      type="number"
+                      min={0}
+                      step={0.25}
+                      inputMode="decimal"
+                      placeholder="Optional, e.g. 0.5"
+                      value={partialBuckets[`office:${item.id}`] ?? ""}
+                      onChange={(event) =>
+                        setPartialBuckets((current) => ({
+                          ...current,
+                          [`office:${item.id}`]: event.target.value
+                        }))
+                      }
+                    />
+                  </div>
+                ) : null}
+              </div>
             ))}
           </div>
         </Card>
@@ -313,15 +443,39 @@ export function InventoryWizard({
       {step === 4 ? (
         <Card>
           <CardTitle>Truck Inventory</CardTitle>
-          <CardDescription className="mt-1">Enter counts for truck items.</CardDescription>
+          <CardDescription className="mt-1">
+            Enter counts for truck items. {COUNTING_RULE_TEXT}
+          </CardDescription>
           <div className="mt-4 grid gap-3">
             {truckItems.map((item, index) => (
-              <CounterInput
-                key={item.id}
-                label={item.name}
-                value={truckCounts[index]?.quantity ?? 0}
-                onChange={(quantity) => form.setValue(`truckCounts.${index}.quantity`, quantity)}
-              />
+              <div key={item.id}>
+                <CounterInput
+                  label={getInventoryDisplayName(item.name)}
+                  value={truckCounts[index]?.quantity ?? 0}
+                  onChange={(quantity) => form.setValue(`truckCounts.${index}.quantity`, quantity)}
+                />
+                {isContracBloxItem(item.name) ? (
+                  <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 p-2">
+                    <label className="mb-1 block text-xs font-semibold text-amber-900">
+                      Partial Buckets (Contrac Blox exception)
+                    </label>
+                    <Input
+                      type="number"
+                      min={0}
+                      step={0.25}
+                      inputMode="decimal"
+                      placeholder="Optional, e.g. 0.5"
+                      value={partialBuckets[`truck:${item.id}`] ?? ""}
+                      onChange={(event) =>
+                        setPartialBuckets((current) => ({
+                          ...current,
+                          [`truck:${item.id}`]: event.target.value
+                        }))
+                      }
+                    />
+                  </div>
+                ) : null}
+              </div>
             ))}
           </div>
         </Card>
@@ -449,6 +603,11 @@ export function InventoryWizard({
               <strong>Truck Item Total Units:</strong>{" "}
               {form.getValues("truckCounts").reduce((sum, item) => sum + item.quantity, 0)}
             </p>
+            {partialBucketSummary ? (
+              <p>
+                <strong>Contrac Partial Buckets:</strong> {partialBucketSummary}
+              </p>
+            ) : null}
             <p>
               <strong>Uploaded Photos:</strong> {uploadedFiles.length}
             </p>

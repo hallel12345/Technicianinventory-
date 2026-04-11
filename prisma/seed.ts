@@ -6,6 +6,16 @@ import { getCurrentMonthYear } from "../lib/time";
 
 const prisma = new PrismaClient();
 
+const INVENTORY_ITEM_RENAMES = [
+  { from: "Bifen i/t", to: "Bifen I/T (Bags)" },
+  { from: "Contrac Blox", to: "Contrac Blox (Buckets)" },
+  { from: "Demand CS", to: "Demand CS (Bottles)" },
+  { from: "Niban", to: "Niban (Boxes)" },
+  { from: "Pro Flex", to: "Pro Flex (Bottles)" },
+  { from: "Tandem", to: "Tandem (Bottles)" },
+  { from: "Typhoons", to: "Typhoons (Backpack)" }
+] as const;
+
 async function main() {
   for (const officeName of OFFICE_SEED) {
     await prisma.office.upsert({
@@ -18,6 +28,27 @@ async function main() {
   const officeMap = new Map(
     (await prisma.office.findMany()).map((office) => [office.name, office.id])
   );
+
+  for (const rename of INVENTORY_ITEM_RENAMES) {
+    const oldItem = await prisma.inventoryItem.findUnique({ where: { name: rename.from } });
+    if (!oldItem) {
+      continue;
+    }
+
+    const newItem = await prisma.inventoryItem.findUnique({ where: { name: rename.to } });
+    if (newItem) {
+      await prisma.inventoryItem.update({
+        where: { id: oldItem.id },
+        data: { isActive: false }
+      });
+      continue;
+    }
+
+    await prisma.inventoryItem.update({
+      where: { id: oldItem.id },
+      data: { name: rename.to }
+    });
+  }
 
   for (const [index, item] of INVENTORY_ITEM_SEED.entries()) {
     await prisma.inventoryItem.upsert({
