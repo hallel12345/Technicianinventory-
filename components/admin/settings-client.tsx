@@ -6,6 +6,7 @@ import { useState, useTransition } from "react";
 
 import {
   archiveEntityAction,
+  deleteOfficeAction,
   saveInventoryItemAction,
   saveOfficeAction,
   saveTruckAction,
@@ -67,6 +68,22 @@ function parseNullableNumber(value: FormDataEntryValue | null) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+function humanizeActionError(actionError: unknown) {
+  const rawMessage = actionError instanceof Error ? actionError.message : "Action failed.";
+
+  if (rawMessage.includes("Unique constraint failed")) {
+    return "That value already exists. Try a different name/code.";
+  }
+  if (rawMessage.includes("Foreign key constraint failed")) {
+    return "This record is linked to other data and cannot be changed that way.";
+  }
+  if (rawMessage.includes("Record to update not found") || rawMessage.includes("Record to delete does not exist")) {
+    return "That record no longer exists. Refresh and try again.";
+  }
+
+  return rawMessage;
+}
+
 export function SettingsClient({
   month,
   year,
@@ -100,7 +117,7 @@ export function SettingsClient({
         setFeedback(successMessage);
         router.refresh();
       } catch (actionError) {
-        setError(actionError instanceof Error ? actionError.message : "Action failed.");
+        setError(humanizeActionError(actionError));
       }
     });
   }
@@ -116,7 +133,7 @@ export function SettingsClient({
           {offices.map((office) => (
             <form
               key={office.id}
-              className="grid gap-2 rounded-xl border border-gray-200 p-3 sm:grid-cols-5"
+              className="grid gap-2 rounded-xl border border-gray-200 p-3 sm:grid-cols-6"
               onSubmit={(event) => {
                 event.preventDefault();
                 const form = new FormData(event.currentTarget);
@@ -155,6 +172,19 @@ export function SettingsClient({
                 }
               >
                 {office.isActive ? "Archive" : "Activate"}
+              </Button>
+              <Button
+                type="button"
+                variant="danger"
+                onClick={() => {
+                  if (!window.confirm(`Delete office ${office.name}? This cannot be undone.`)) {
+                    return;
+                  }
+
+                  runServerAction(() => deleteOfficeAction(office.id), `Deleted office ${office.name}.`);
+                }}
+              >
+                Delete
               </Button>
             </form>
           ))}

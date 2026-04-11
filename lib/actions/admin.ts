@@ -502,6 +502,62 @@ export async function archiveEntityAction(
   return { success: true };
 }
 
+export async function deleteOfficeAction(id: string) {
+  const admin = await requireAdminSession();
+
+  const office = await db.office.findUnique({
+    where: { id },
+    select: { id: true, name: true }
+  });
+
+  if (!office) {
+    throw new Error("Office not found.");
+  }
+
+  const submissionCount = await db.officeInventorySubmission.count({
+    where: { officeId: id }
+  });
+
+  if (submissionCount > 0) {
+    throw new Error("This office has inventory history and cannot be deleted. Archive it instead.");
+  }
+
+  await db.$transaction(async (tx) => {
+    await tx.monthlyRequirementOverride.deleteMany({
+      where: { officeId: id }
+    });
+
+    await tx.user.updateMany({
+      where: { officeId: id },
+      data: { officeId: null }
+    });
+
+    await tx.truck.updateMany({
+      where: { officeId: id },
+      data: { officeId: null }
+    });
+
+    await tx.office.delete({
+      where: { id }
+    });
+  });
+
+  await logAudit({
+    action: AuditAction.OFFICE_ARCHIVED,
+    entityType: "Office",
+    entityId: id,
+    actorId: admin.id,
+    description: `Deleted office ${office.name}`,
+    metadata: {
+      officeName: office.name
+    }
+  });
+
+  revalidatePath("/admin/settings");
+  revalidatePath("/admin");
+  return { success: true };
+}
+
 export async function setInventoryItemScopeAction(itemId: string, scope: InventoryScope) {
   await requireAdminSession();
   await db.inventoryItem.update({ where: { id: itemId }, data: { scope } });
