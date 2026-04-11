@@ -43,12 +43,8 @@ export function LoginPanels() {
       ) : (
         <Card>
           <CardTitle>Admin Sign-In</CardTitle>
-          <CardDescription className="mt-1">Email and password required.</CardDescription>
+          <CardDescription className="mt-1">Enter admin password.</CardDescription>
           <form action={adminAction} className="mt-4 space-y-3">
-            <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">Email</label>
-              <Input name="email" type="email" placeholder="admin@purepest.local" required />
-            </div>
             <div>
               <label className="mb-1 block text-sm font-medium text-gray-700">Password</label>
               <Input name="password" type="password" required />

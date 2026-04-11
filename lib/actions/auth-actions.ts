@@ -38,16 +38,14 @@ export async function adminLoginAction(
   _prevState: AuthActionState,
   formData: FormData
 ): Promise<AuthActionState> {
-  const email = String(formData.get("email") ?? "").trim();
   const password = String(formData.get("password") ?? "").trim();
 
-  if (!email || !password) {
-    return { error: "Email and password are required." };
+  if (!password) {
+    return { error: "Password is required." };
   }
 
   try {
     await signIn("admin-password", {
-      email,
       password,
       redirectTo: "/admin"
     });

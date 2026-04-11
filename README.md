@@ -134,8 +134,7 @@ All requested inventory items are seeded and editable in Admin Settings.
 
 ### Seeded Accounts
 - Admin:
-  - email: `admin@purepest.local`
-  - password: `Admin123!`
+  - password: `801Lawncare1!` (email not required at login)
 - Demo technicians:
   - `Ogden Tech` PIN: `1001`
   - `Logan Tech` PIN: `1002`

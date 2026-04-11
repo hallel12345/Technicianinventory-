@@ -25,6 +25,7 @@ async function handleFailedLogin(userId: string, attempts: number) {
 }
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
+  trustHost: true,
   session: {
     strategy: "jwt"
   },
@@ -105,37 +106,55 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       id: "admin-password",
       name: "Admin Password",
       credentials: {
-        email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" }
       },
       async authorize(credentials) {
-        const email = String(credentials?.email ?? "").trim().toLowerCase();
         const password = String(credentials?.password ?? "");
 
-        if (!email || !password) {
+        if (!password) {
           return null;
         }
 
-        const user = await db.user.findFirst({
+        const eligibleAdmins = await db.user.findMany({
           where: {
-            email,
-            role: Role.ADMIN
+            role: Role.ADMIN,
+            isActive: true,
+            passwordHash: { not: null },
+            OR: [{ lockedUntil: null }, { lockedUntil: { lte: new Date() } }]
+          },
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            role: true,
+            officeId: true,
+            passwordHash: true,
+            failedLoginAttempts: true
           }
         });
 
-        if (!user || !user.isActive || !user.passwordHash) {
+        if (!eligibleAdmins.length) {
           return null;
         }
 
-        if (user.lockedUntil && user.lockedUntil > new Date()) {
-          return null;
+        const matchedUsers: Array<(typeof eligibleAdmins)[number]> = [];
+        for (const user of eligibleAdmins) {
+          if (!user.passwordHash) {
+            continue;
+          }
+          const matches = await bcrypt.compare(password, user.passwordHash);
+          if (matches) {
+            matchedUsers.push(user);
+          }
         }
 
-        const passwordMatches = await bcrypt.compare(password, user.passwordHash);
-        if (!passwordMatches) {
-          await handleFailedLogin(user.id, user.failedLoginAttempts);
+        if (!matchedUsers.length) {
+          if (eligibleAdmins.length === 1) {
+            await handleFailedLogin(eligibleAdmins[0].id, eligibleAdmins[0].failedLoginAttempts);
+          }
           return null;
         }
+        const user = matchedUsers[0];
 
         await db.user.update({
           where: { id: user.id },
@@ -157,6 +176,24 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     })
   ],
   callbacks: {
+    async redirect({ url, baseUrl }) {
+      if (url.startsWith("/")) {
+        return url;
+      }
+
+      try {
+        const target = new URL(url);
+        const base = new URL(baseUrl);
+
+        if (target.origin === base.origin) {
+          return `${target.pathname}${target.search}${target.hash}`;
+        }
+      } catch {
+        // Fall through to safe default.
+      }
+
+      return "/";
+    },
     async jwt({ token, user }) {
       if (user) {
         if (user.id) {

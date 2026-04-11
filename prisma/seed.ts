@@ -51,7 +51,7 @@ async function main() {
     });
   }
 
-  const adminPasswordHash = await bcrypt.hash("Admin123!", 12);
+  const adminPasswordHash = await bcrypt.hash("801Lawncare1!", 12);
   await prisma.user.upsert({
     where: { email: "admin@purepest.local" },
     update: {
