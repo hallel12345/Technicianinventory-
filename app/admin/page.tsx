@@ -21,6 +21,11 @@ function parseMonthYear(searchParams?: { month?: string; year?: string }) {
   };
 }
 
+const monthOptions = Array.from({ length: 12 }, (_, index) => ({
+  value: index + 1,
+  label: format(new Date(2024, index, 1), "MMMM")
+}));
+
 function oilProgressBarClass(state?: "green" | "yellow" | "red") {
   if (state === "red") {
     return "bg-red-500";
@@ -98,14 +103,17 @@ export default async function AdminDashboardPage({
           <form className="flex items-end gap-2" method="GET">
             <div>
               <label className="mb-1 block text-xs font-medium text-gray-600">Month</label>
-              <input
+              <select
                 name="month"
-                type="number"
-                min={1}
-                max={12}
                 defaultValue={month}
-                className="h-10 w-20 rounded-lg border border-gray-300 px-2"
-              />
+                className="h-10 w-32 rounded-lg border border-gray-300 px-2 text-sm"
+              >
+                {monthOptions.map((monthOption) => (
+                  <option key={monthOption.value} value={monthOption.value}>
+                    {monthOption.label}
+                  </option>
+                ))}
+              </select>
             </div>
             <div>
               <label className="mb-1 block text-xs font-medium text-gray-600">Year</label>

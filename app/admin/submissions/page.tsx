@@ -20,6 +20,11 @@ function parseMonthYear(searchParams?: { month?: string; year?: string }) {
   };
 }
 
+const monthOptions = Array.from({ length: 12 }, (_, index) => ({
+  value: index + 1,
+  label: format(new Date(2024, index, 1), "MMMM")
+}));
+
 export default async function AdminSubmissionsPage({
   searchParams
 }: {
@@ -109,14 +114,17 @@ export default async function AdminSubmissionsPage({
           Search, filter, open, and unlock inventory submissions.
         </CardDescription>
         <form method="GET" className="mt-4 grid gap-3 sm:grid-cols-5">
-          <input
+          <select
             name="month"
-            type="number"
-            min={1}
-            max={12}
             defaultValue={month}
-            className="h-10 rounded-lg border border-gray-300 px-2"
-          />
+            className="h-10 rounded-lg border border-gray-300 px-2 text-sm"
+          >
+            {monthOptions.map((monthOption) => (
+              <option key={monthOption.value} value={monthOption.value}>
+                {monthOption.label}
+              </option>
+            ))}
+          </select>
           <input
             name="year"
             type="number"

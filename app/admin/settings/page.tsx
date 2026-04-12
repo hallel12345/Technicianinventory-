@@ -16,6 +16,21 @@ function parseMonthYear(searchParams?: { month?: string; year?: string }) {
   };
 }
 
+const monthOptions = [
+  { value: 1, label: "January" },
+  { value: 2, label: "February" },
+  { value: 3, label: "March" },
+  { value: 4, label: "April" },
+  { value: 5, label: "May" },
+  { value: 6, label: "June" },
+  { value: 7, label: "July" },
+  { value: 8, label: "August" },
+  { value: 9, label: "September" },
+  { value: 10, label: "October" },
+  { value: 11, label: "November" },
+  { value: 12, label: "December" }
+];
+
 export default async function AdminSettingsPage({
   searchParams
 }: {
@@ -52,14 +67,17 @@ export default async function AdminSettingsPage({
       <form method="GET" className="flex items-end gap-2 rounded-xl border border-gray-200 bg-white p-3 shadow-card">
         <div>
           <label className="mb-1 block text-xs font-medium text-gray-600">Month</label>
-          <input
-            type="number"
+          <select
             name="month"
-            min={1}
-            max={12}
             defaultValue={month}
-            className="h-10 w-20 rounded-lg border border-gray-300 px-2"
-          />
+            className="h-10 w-32 rounded-lg border border-gray-300 px-2 text-sm"
+          >
+            {monthOptions.map((monthOption) => (
+              <option key={monthOption.value} value={monthOption.value}>
+                {monthOption.label}
+              </option>
+            ))}
+          </select>
         </div>
         <div>
           <label className="mb-1 block text-xs font-medium text-gray-600">Year</label>
