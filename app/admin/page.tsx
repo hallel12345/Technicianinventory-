@@ -62,7 +62,7 @@ function registrationLabel(status?: string) {
   return "Missing Data";
 }
 
-function registrationExpirationLabel(month: number | null, year: number | null) {
+function registrationExpirationLabel(month: number | null | undefined, year: number | null | undefined) {
   if (!month || !year) {
     return "-";
   }
