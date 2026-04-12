@@ -558,6 +558,59 @@ export async function deleteOfficeAction(id: string) {
   return { success: true };
 }
 
+export async function deleteUserAction(id: string) {
+  const admin = await requireAdminSession();
+
+  const user = await db.user.findUnique({
+    where: { id },
+    select: { id: true, name: true, role: true }
+  });
+
+  if (!user) {
+    throw new Error("User not found.");
+  }
+
+  if (user.id === admin.id) {
+    throw new Error("You cannot delete your own admin account while signed in.");
+  }
+
+  if (user.role === Role.ADMIN) {
+    await assertAnotherActiveAdminExists(user.id);
+  }
+
+  await db.$transaction(async (tx) => {
+    await tx.auditLog.updateMany({
+      where: { actorId: user.id },
+      data: { actorId: null }
+    });
+
+    await tx.fileUpload.updateMany({
+      where: { uploadedById: user.id },
+      data: { uploadedById: null }
+    });
+
+    await tx.user.delete({
+      where: { id: user.id }
+    });
+  });
+
+  await logAudit({
+    action: AuditAction.USER_UPDATED,
+    entityType: "User",
+    entityId: user.id,
+    actorId: admin.id,
+    description: `Deleted user ${user.name}`,
+    metadata: {
+      role: user.role,
+      userName: user.name
+    }
+  });
+
+  revalidatePath("/admin/settings");
+  revalidatePath("/admin");
+  return { success: true };
+}
+
 export async function setInventoryItemScopeAction(itemId: string, scope: InventoryScope) {
   await requireAdminSession();
   await db.inventoryItem.update({ where: { id: itemId }, data: { scope } });

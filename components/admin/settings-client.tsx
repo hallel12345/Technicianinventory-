@@ -7,6 +7,7 @@ import { useState, useTransition } from "react";
 import {
   archiveEntityAction,
   deleteOfficeAction,
+  deleteUserAction,
   saveInventoryItemAction,
   saveOfficeAction,
   saveTruckAction,
@@ -482,6 +483,18 @@ export function SettingsClient({
                 }
               >
                 {user.isActive ? "Deactivate" : "Activate"}
+              </Button>
+              <Button
+                type="button"
+                variant="danger"
+                onClick={() => {
+                  if (!window.confirm(`Delete user ${user.name}? This cannot be undone.`)) {
+                    return;
+                  }
+                  runServerAction(() => deleteUserAction(user.id), `Deleted user ${user.name}.`);
+                }}
+              >
+                Delete
               </Button>
             </form>
           ))}
