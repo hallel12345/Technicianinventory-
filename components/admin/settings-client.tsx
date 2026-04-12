@@ -236,7 +236,7 @@ export function SettingsClient({
           {trucks.map((truck) => (
             <form
               key={truck.id}
-              className="grid gap-2 rounded-xl border border-gray-200 p-3 sm:grid-cols-9"
+              className="grid gap-2 rounded-xl border border-gray-200 p-3 sm:grid-cols-2 lg:grid-cols-9"
               onSubmit={(event) => {
                 event.preventDefault();
                 const form = new FormData(event.currentTarget);
@@ -262,6 +262,7 @@ export function SettingsClient({
               <Select
                 name="registrationExpirationMonth"
                 defaultValue={truck.registrationExpirationMonth ?? ""}
+                className="min-w-[11rem]"
               >
                 <option value="">Reg month (optional)</option>
                 {registrationMonthOptions.map((monthOption) => (
@@ -313,7 +314,7 @@ export function SettingsClient({
           ))}
 
           <form
-            className="grid gap-2 rounded-xl border border-dashed border-gray-300 p-3 sm:grid-cols-6"
+            className="grid gap-2 rounded-xl border border-dashed border-gray-300 p-3 sm:grid-cols-2 lg:grid-cols-6"
             onSubmit={(event) => {
               event.preventDefault();
               const form = new FormData(event.currentTarget);
@@ -335,7 +336,7 @@ export function SettingsClient({
           >
             <Input name="name" placeholder="Truck name" required />
             <Input name="licensePlate" placeholder="License plate" required />
-            <Select name="registrationExpirationMonth" defaultValue="">
+            <Select name="registrationExpirationMonth" defaultValue="" className="min-w-[11rem]">
               <option value="">Reg month (optional)</option>
               {registrationMonthOptions.map((monthOption) => (
                 <option key={monthOption.value} value={monthOption.value}>
