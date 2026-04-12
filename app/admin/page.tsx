@@ -5,7 +5,7 @@ import { resendMonthlySummaryAction, setMonthLockAction } from "@/lib/actions/ad
 import { requireAdmin } from "@/lib/auth-helpers";
 import { db } from "@/lib/db";
 import { getMonthlySnapshot } from "@/lib/services/monthly";
-import { getCurrentMonthYear } from "@/lib/time";
+import { formatMonthYear, getCurrentMonthYear } from "@/lib/time";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardTitle } from "@/components/ui/card";
@@ -60,6 +60,14 @@ function registrationLabel(status?: string) {
     return "Up to Date";
   }
   return "Missing Data";
+}
+
+function registrationExpirationLabel(month: number | null, year: number | null) {
+  if (!month || !year) {
+    return "-";
+  }
+
+  return `${formatMonthYear(month, year)} (${month}/${year})`;
 }
 
 export default async function AdminDashboardPage({
@@ -262,9 +270,7 @@ export default async function AdminDashboardPage({
                 <div className="mt-2 flex items-center justify-between gap-2 text-xs text-gray-700">
                   <p>
                     Registration expires:{" "}
-                    {truck.registrationExpirationMonth && truck.registrationExpirationYear
-                      ? `${truck.registrationExpirationMonth}/${truck.registrationExpirationYear}`
-                      : "-"}
+                    {registrationExpirationLabel(truck.registrationExpirationMonth, truck.registrationExpirationYear)}
                   </p>
                   <Badge variant={registrationVariant(truck.registrationStatus)}>
                     {registrationLabel(truck.registrationStatus)}

@@ -59,6 +59,21 @@ function boolText(value: boolean) {
   return value ? "true" : "false";
 }
 
+const registrationMonthOptions = [
+  { value: 1, label: "January (1)" },
+  { value: 2, label: "February (2)" },
+  { value: 3, label: "March (3)" },
+  { value: 4, label: "April (4)" },
+  { value: 5, label: "May (5)" },
+  { value: 6, label: "June (6)" },
+  { value: 7, label: "July (7)" },
+  { value: 8, label: "August (8)" },
+  { value: 9, label: "September (9)" },
+  { value: 10, label: "October (10)" },
+  { value: 11, label: "November (11)" },
+  { value: 12, label: "December (12)" }
+];
+
 function parseNullableNumber(value: FormDataEntryValue | null) {
   const normalized = String(value ?? "").trim();
   if (!normalized) {
@@ -244,14 +259,17 @@ export function SettingsClient({
             >
               <Input name="name" defaultValue={truck.name} />
               <Input name="licensePlate" defaultValue={truck.licensePlate} />
-              <Input
+              <Select
                 name="registrationExpirationMonth"
-                type="number"
-                min={1}
-                max={12}
-                placeholder="Reg month"
                 defaultValue={truck.registrationExpirationMonth ?? ""}
-              />
+              >
+                <option value="">Reg month (optional)</option>
+                {registrationMonthOptions.map((monthOption) => (
+                  <option key={monthOption.value} value={monthOption.value}>
+                    {monthOption.label}
+                  </option>
+                ))}
+              </Select>
               <Input
                 name="registrationExpirationYear"
                 type="number"
@@ -317,7 +335,14 @@ export function SettingsClient({
           >
             <Input name="name" placeholder="Truck name" required />
             <Input name="licensePlate" placeholder="License plate" required />
-            <Input name="registrationExpirationMonth" type="number" min={1} max={12} placeholder="Reg month" />
+            <Select name="registrationExpirationMonth" defaultValue="">
+              <option value="">Reg month (optional)</option>
+              {registrationMonthOptions.map((monthOption) => (
+                <option key={monthOption.value} value={monthOption.value}>
+                  {monthOption.label}
+                </option>
+              ))}
+            </Select>
             <Input name="registrationExpirationYear" type="number" min={2020} max={2100} placeholder="Reg year" />
             <Select name="officeId" defaultValue="">
               <option value="">Assign office (optional)</option>
