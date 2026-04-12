@@ -30,7 +30,7 @@ export default async function AdminSettingsPage({
     db.truck.findMany({ orderBy: [{ name: "asc" }, { licensePlate: "asc" }] }),
     db.inventoryItem.findMany({ orderBy: [{ sortOrder: "asc" }, { name: "asc" }] }),
     db.user.findMany({ orderBy: [{ role: "asc" }, { name: "asc" }] }),
-    db.$transaction((tx) => getRequiredTargetsForMonth(tx, month, year))
+    getRequiredTargetsForMonth(db, month, year)
   ]);
 
   const officeRequired = Object.fromEntries(

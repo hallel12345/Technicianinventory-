@@ -6,6 +6,7 @@ import { getTruckMileageMetricsMap } from "@/lib/services/truck-metrics";
 import { monthKey } from "@/lib/time";
 
 export type MonthlyTx = Prisma.TransactionClient;
+type MonthlyReadClient = Pick<Prisma.TransactionClient, "office" | "truck" | "monthlyRequirementOverride">;
 
 type RequiredEntityStatus = {
   id: string;
@@ -53,7 +54,7 @@ export async function ensureMonthlyCycle(tx: MonthlyTx, month: number, year: num
   });
 }
 
-export async function getRequiredTargetsForMonth(tx: MonthlyTx, month: number, year: number) {
+export async function getRequiredTargetsForMonth(tx: MonthlyReadClient, month: number, year: number) {
   const [offices, trucks, overrides] = await Promise.all([
     tx.office.findMany({
       where: { isActive: true },
@@ -168,7 +169,7 @@ export async function recalculateMonthlyCycle(tx: MonthlyTx, month: number, year
 export async function getMonthlySnapshot(month: number, year: number) {
   const [cycle, entities] = await Promise.all([
     db.monthlyCycle.findUnique({ where: { month_year: { month, year } } }),
-    db.$transaction((tx) => getRequiredTargetsForMonth(tx, month, year))
+    getRequiredTargetsForMonth(db, month, year)
   ]);
 
   const [officeSubmissions, truckSubmissions] = await Promise.all([
