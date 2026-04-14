@@ -9,7 +9,7 @@ export default async function InventoryPage() {
   const user = await requireTechnician();
   const { month, year } = getCurrentMonthYear();
 
-  const [offices, trucks, officeItems, truckItems] = await Promise.all([
+  const [offices, trucks, officeItems, truckItems, officeSubmissions] = await Promise.all([
     db.office.findMany({
       where: { isActive: true },
       orderBy: { name: "asc" },
@@ -42,20 +42,40 @@ export default async function InventoryPage() {
       },
       orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
       select: { id: true, name: true }
+    }),
+    db.officeInventorySubmission.findMany({
+      where: { month, year },
+      select: {
+        officeId: true,
+        technicianName: true,
+        submittedAt: true
+      }
     })
   ]);
+
+  const officesWithSubmission = new Map(officeSubmissions.map((submission) => [submission.officeId, submission]));
+
+  const officeOptions = offices.map((office) => {
+    const existing = officesWithSubmission.get(office.id);
+    return {
+      ...office,
+      hasCurrentSubmission: Boolean(existing),
+      lastSubmittedAt: existing?.submittedAt.toISOString() ?? null,
+      lastSubmittedBy: existing?.technicianName ?? null
+    };
+  });
 
   return (
     <div className="space-y-4">
       <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-card sm:p-6">
         <h1 className="text-2xl font-semibold text-brand-dark">Start Monthly Inventory</h1>
         <p className="mt-2 text-sm text-gray-600">
-          Period: {month}/{year}. Complete both office/shop and truck counts in one quick flow.
+          Period: {month}/{year}. Complete truck counts, and update office/shop counts only when needed.
         </p>
       </div>
 
       <InventoryWizard
-        offices={offices}
+        offices={officeOptions}
         trucks={trucks}
         officeItems={officeItems}
         truckItems={truckItems}

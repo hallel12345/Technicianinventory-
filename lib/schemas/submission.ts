@@ -10,6 +10,7 @@ export const inventoryCountSchema = z.object({
 
 const technicianSubmissionBaseSchema = z.object({
   officeId: z.string().min(1, "Office is required"),
+  officeAction: z.enum(["UPDATE", "SKIP"]).default("UPDATE"),
   truckId: z.string().min(1, "Truck is required"),
   registrationExpirationMonth: z.number().int().min(1).max(12).optional(),
   registrationExpirationYear: z.number().int().min(2020).max(2100).optional(),

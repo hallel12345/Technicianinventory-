@@ -15,7 +15,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { CounterInput } from "@/components/tech/counter-input";
 import { StepProgress } from "@/components/tech/step-progress";
 
-type OfficeOption = { id: string; name: string };
+type OfficeOption = {
+  id: string;
+  name: string;
+  hasCurrentSubmission: boolean;
+  lastSubmittedAt: string | null;
+  lastSubmittedBy: string | null;
+};
 type TruckOption = {
   id: string;
   name: string;
@@ -95,17 +101,21 @@ function parsePartialBucketAmount(value: string | undefined) {
 function getPartialBucketSummary(
   partialBuckets: Record<string, string>,
   officeItems: ItemOption[],
-  truckItems: ItemOption[]
+  truckItems: ItemOption[],
+  options?: { includeOffice?: boolean }
 ) {
   const segments: string[] = [];
+  const includeOffice = options?.includeOffice ?? true;
 
-  for (const item of officeItems) {
-    if (!isContracBloxItem(item.name)) {
-      continue;
-    }
-    const amount = parsePartialBucketAmount(partialBuckets[`office:${item.id}`]);
-    if (amount !== null) {
-      segments.push(`Office/Shop ${getInventoryDisplayName(item.name)}: ${amount}`);
+  if (includeOffice) {
+    for (const item of officeItems) {
+      if (!isContracBloxItem(item.name)) {
+        continue;
+      }
+      const amount = parsePartialBucketAmount(partialBuckets[`office:${item.id}`]);
+      if (amount !== null) {
+        segments.push(`Office/Shop ${getInventoryDisplayName(item.name)}: ${amount}`);
+      }
     }
   }
 
@@ -148,6 +158,7 @@ export function InventoryWizard({
     resolver: zodResolver(technicianSubmissionSchema),
     defaultValues: {
       officeId: "",
+      officeAction: "UPDATE",
       truckId: "",
       registrationExpirationMonth: undefined,
       registrationExpirationYear: undefined,
@@ -187,6 +198,7 @@ export function InventoryWizard({
       };
       form.reset({
         ...parsed,
+        officeAction: parsed.officeAction ?? "UPDATE",
         registrationExpirationMonth: parsed.registrationExpirationMonth,
         registrationExpirationYear: parsed.registrationExpirationYear,
         odometerMiles: parsed.odometerMiles ?? 0,
@@ -218,6 +230,13 @@ export function InventoryWizard({
 
   const officeCounts = form.watch("officeCounts");
   const truckCounts = form.watch("truckCounts");
+  const selectedOffice = useMemo(
+    () => offices.find((office) => office.id === selectedOfficeId) ?? null,
+    [offices, selectedOfficeId]
+  );
+  const officeAction = form.watch("officeAction");
+  const canSkipOffice = Boolean(selectedOffice?.hasCurrentSubmission);
+  const shouldSkipOffice = canSkipOffice && officeAction === "SKIP";
   const selectedTruckId = form.watch("truckId");
   const selectedTruck = useMemo(
     () => trucks.find((truck) => truck.id === selectedTruckId) ?? null,
@@ -228,9 +247,22 @@ export function InventoryWizard({
       (!selectedTruck.registrationExpirationMonth || !selectedTruck.registrationExpirationYear)
   );
   const partialBucketSummary = useMemo(
-    () => getPartialBucketSummary(partialBuckets, officeItems, truckItems),
-    [partialBuckets, officeItems, truckItems]
+    () =>
+      getPartialBucketSummary(partialBuckets, officeItems, truckItems, {
+        includeOffice: !shouldSkipOffice
+      }),
+    [partialBuckets, officeItems, shouldSkipOffice, truckItems]
   );
+
+  useEffect(() => {
+    if (!selectedOffice) {
+      return;
+    }
+
+    if (!selectedOffice.hasCurrentSubmission) {
+      form.setValue("officeAction", "UPDATE");
+    }
+  }, [form, selectedOffice]);
 
   useEffect(() => {
     if (!selectedTruck) {
@@ -403,40 +435,71 @@ export function InventoryWizard({
         <Card>
           <CardTitle>Office / Shop Inventory</CardTitle>
           <CardDescription className="mt-1">
-            Enter counts for office/shop items. {COUNTING_RULE_TEXT}
+            {canSkipOffice
+              ? "An office submission already exists this month. Choose whether to keep it or update it."
+              : `Enter counts for office/shop items. ${COUNTING_RULE_TEXT}`}
           </CardDescription>
-          <div className="mt-4 grid gap-3">
-            {officeItems.map((item, index) => (
-              <div key={item.id}>
-                <CounterInput
-                  label={getInventoryDisplayName(item.name)}
-                  value={officeCounts[index]?.quantity ?? 0}
-                  onChange={(quantity) => form.setValue(`officeCounts.${index}.quantity`, quantity)}
-                />
-                {isContracBloxItem(item.name) ? (
-                  <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 p-2">
-                    <label className="mb-1 block text-xs font-semibold text-amber-900">
-                      Partial Buckets (Contrac Blox exception)
-                    </label>
-                    <Input
-                      type="number"
-                      min={0}
-                      step={0.25}
-                      inputMode="decimal"
-                      placeholder="Optional, e.g. 0.5"
-                      value={partialBuckets[`office:${item.id}`] ?? ""}
-                      onChange={(event) =>
-                        setPartialBuckets((current) => ({
-                          ...current,
-                          [`office:${item.id}`]: event.target.value
-                        }))
-                      }
-                    />
-                  </div>
-                ) : null}
+          {canSkipOffice ? (
+            <div className="mt-4 space-y-3">
+              <div className="rounded-xl border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">
+                Last office submission:{" "}
+                {selectedOffice?.lastSubmittedAt
+                  ? `${new Date(selectedOffice.lastSubmittedAt).toLocaleString()} by ${
+                      selectedOffice.lastSubmittedBy || "Unknown technician"
+                    }`
+                  : "Already submitted this month"}
               </div>
-            ))}
-          </div>
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-gray-700">Office inventory this submission</label>
+                <Select {...form.register("officeAction")}>
+                  <option value="UPDATE">Edit office inventory for this submission</option>
+                  <option value="SKIP">Skip office inventory and keep existing monthly office counts</option>
+                </Select>
+              </div>
+            </div>
+          ) : (
+            <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">
+              This office does not have a submission yet this month, so office inventory is required.
+            </div>
+          )}
+          {!shouldSkipOffice ? (
+            <div className="mt-4 grid gap-3">
+              {officeItems.map((item, index) => (
+                <div key={item.id}>
+                  <CounterInput
+                    label={getInventoryDisplayName(item.name)}
+                    value={officeCounts[index]?.quantity ?? 0}
+                    onChange={(quantity) => form.setValue(`officeCounts.${index}.quantity`, quantity)}
+                  />
+                  {isContracBloxItem(item.name) ? (
+                    <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 p-2">
+                      <label className="mb-1 block text-xs font-semibold text-amber-900">
+                        Partial Buckets (Contrac Blox exception)
+                      </label>
+                      <Input
+                        type="number"
+                        min={0}
+                        step={0.25}
+                        inputMode="decimal"
+                        placeholder="Optional, e.g. 0.5"
+                        value={partialBuckets[`office:${item.id}`] ?? ""}
+                        onChange={(event) =>
+                          setPartialBuckets((current) => ({
+                            ...current,
+                            [`office:${item.id}`]: event.target.value
+                          }))
+                        }
+                      />
+                    </div>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
+              Office inventory will be skipped for this submission. Existing office counts for this month stay unchanged.
+            </div>
+          )}
         </Card>
       ) : null}
 
@@ -597,7 +660,9 @@ export function InventoryWizard({
             </p>
             <p>
               <strong>Office Item Total Units:</strong>{" "}
-              {form.getValues("officeCounts").reduce((sum, item) => sum + item.quantity, 0)}
+              {shouldSkipOffice
+                ? "Skipped (existing office monthly counts kept)"
+                : form.getValues("officeCounts").reduce((sum, item) => sum + item.quantity, 0)}
             </p>
             <p>
               <strong>Truck Item Total Units:</strong>{" "}

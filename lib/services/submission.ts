@@ -100,44 +100,58 @@ export async function createTechnicianSubmission(input: TechnicianSubmissionInpu
         select: { id: true }
       });
 
-      const officeSubmission = existingOfficeSubmission
-        ? await tx.officeInventorySubmission.update({
-            where: { id: existingOfficeSubmission.id },
-            data: {
-              monthlyCycleId: cycle.id,
-              technicianName: validated.technicianName.trim(),
-              notes: normalizeText(validated.notes),
-              problemsReported: normalizeText(validated.problemsReported),
-              missingDamagedNotes: normalizeText(validated.missingDamagedNotes),
-              updatedById: userId,
-              isManuallyUnlocked: false,
-              submittedAt: new Date(),
-              status: SubmissionStatus.RESUBMITTED
-            }
-          })
-        : await tx.officeInventorySubmission.create({
-            data: {
-              month,
-              year,
-              monthlyCycleId: cycle.id,
-              officeId: office.id,
-              technicianName: validated.technicianName.trim(),
-              notes: normalizeText(validated.notes),
-              problemsReported: normalizeText(validated.problemsReported),
-              missingDamagedNotes: normalizeText(validated.missingDamagedNotes),
-              createdById: userId,
-              status: SubmissionStatus.SUBMITTED
-            }
-          });
+      let officeSubmissionId: string | null = null;
 
-      await tx.officeInventoryCount.deleteMany({ where: { submissionId: officeSubmission.id } });
-      await tx.officeInventoryCount.createMany({
-        data: validated.officeCounts.map((count) => ({
-          submissionId: officeSubmission.id,
-          inventoryItemId: count.itemId,
-          quantity: count.quantity
-        }))
-      });
+      if (validated.officeAction === "SKIP") {
+        if (!existingOfficeSubmission) {
+          throw new SubmissionError(
+            "Office inventory cannot be skipped because no office submission exists for this month yet."
+          );
+        }
+
+        officeSubmissionId = existingOfficeSubmission.id;
+      } else {
+        const officeSubmission = existingOfficeSubmission
+          ? await tx.officeInventorySubmission.update({
+              where: { id: existingOfficeSubmission.id },
+              data: {
+                monthlyCycleId: cycle.id,
+                technicianName: validated.technicianName.trim(),
+                notes: normalizeText(validated.notes),
+                problemsReported: normalizeText(validated.problemsReported),
+                missingDamagedNotes: normalizeText(validated.missingDamagedNotes),
+                updatedById: userId,
+                isManuallyUnlocked: false,
+                submittedAt: new Date(),
+                status: SubmissionStatus.RESUBMITTED
+              }
+            })
+          : await tx.officeInventorySubmission.create({
+              data: {
+                month,
+                year,
+                monthlyCycleId: cycle.id,
+                officeId: office.id,
+                technicianName: validated.technicianName.trim(),
+                notes: normalizeText(validated.notes),
+                problemsReported: normalizeText(validated.problemsReported),
+                missingDamagedNotes: normalizeText(validated.missingDamagedNotes),
+                createdById: userId,
+                status: SubmissionStatus.SUBMITTED
+              }
+            });
+
+        await tx.officeInventoryCount.deleteMany({ where: { submissionId: officeSubmission.id } });
+        await tx.officeInventoryCount.createMany({
+          data: validated.officeCounts.map((count) => ({
+            submissionId: officeSubmission.id,
+            inventoryItemId: count.itemId,
+            quantity: count.quantity
+          }))
+        });
+
+        officeSubmissionId = officeSubmission.id;
+      }
 
       const existingTruckSubmission = await tx.truckInventorySubmission.findUnique({
         where: {
@@ -200,15 +214,21 @@ export async function createTechnicianSubmission(input: TechnicianSubmissionInpu
       });
 
       if (validated.uploadedFileIds?.length) {
+        const fileAssociationUpdate: {
+          officeSubmissionId?: string;
+          truckSubmissionId: string;
+        } = { truckSubmissionId: truckSubmission.id };
+
+        if (validated.officeAction !== "SKIP" && officeSubmissionId) {
+          fileAssociationUpdate.officeSubmissionId = officeSubmissionId;
+        }
+
         await tx.fileUpload.updateMany({
           where: {
             id: { in: validated.uploadedFileIds },
             uploadedById: userId
           },
-          data: {
-            officeSubmissionId: officeSubmission.id,
-            truckSubmissionId: truckSubmission.id
-          }
+          data: fileAssociationUpdate
         });
       }
 
@@ -226,7 +246,7 @@ export async function createTechnicianSubmission(input: TechnicianSubmissionInpu
       }
 
       return {
-        officeSubmissionId: officeSubmission.id,
+        officeSubmissionId,
         truckSubmissionId: truckSubmission.id,
         month,
         year
