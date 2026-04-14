@@ -9,7 +9,7 @@ export default async function InventoryPage() {
   const user = await requireTechnician();
   const { month, year } = getCurrentMonthYear();
 
-  const [offices, trucks, officeItems, truckItems, officeSubmissions] = await Promise.all([
+  const [offices, trucks, officeItems, truckItems, officeSubmissions, truckSubmissions] = await Promise.all([
     db.office.findMany({
       where: { isActive: true },
       orderBy: { name: "asc" },
@@ -50,10 +50,15 @@ export default async function InventoryPage() {
         technicianName: true,
         submittedAt: true
       }
+    }),
+    db.truckInventorySubmission.findMany({
+      where: { month, year },
+      select: { truckId: true }
     })
   ]);
 
   const officesWithSubmission = new Map(officeSubmissions.map((submission) => [submission.officeId, submission]));
+  const trucksWithSubmission = new Set(truckSubmissions.map((submission) => submission.truckId));
 
   const officeOptions = offices.map((office) => {
     const existing = officesWithSubmission.get(office.id);
@@ -64,6 +69,11 @@ export default async function InventoryPage() {
       lastSubmittedBy: existing?.technicianName ?? null
     };
   });
+
+  const truckOptions = trucks.map((truck) => ({
+    ...truck,
+    hasCurrentSubmission: trucksWithSubmission.has(truck.id)
+  }));
 
   return (
     <div className="space-y-4">
@@ -76,7 +86,7 @@ export default async function InventoryPage() {
 
       <InventoryWizard
         offices={officeOptions}
-        trucks={trucks}
+        trucks={truckOptions}
         officeItems={officeItems}
         truckItems={truckItems}
         technicianName={user.name ?? ""}

@@ -29,6 +29,7 @@ type TruckOption = {
   officeId: string | null;
   registrationExpirationMonth: number | null;
   registrationExpirationYear: number | null;
+  hasCurrentSubmission: boolean;
 };
 type ItemOption = { id: string; name: string };
 
@@ -152,6 +153,10 @@ export function InventoryWizard({
   const [uploadedFiles, setUploadedFiles] = useState<Array<{ id: string; name: string }>>([]);
   const [partialBuckets, setPartialBuckets] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [completedTruckIds, setCompletedTruckIds] = useState<Set<string>>(
+    () => new Set(trucks.filter((truck) => truck.hasCurrentSubmission).map((truck) => truck.id))
+  );
   const [isPending, startTransition] = useTransition();
 
   const form = useForm<TechnicianSubmissionInput>({
@@ -242,6 +247,12 @@ export function InventoryWizard({
     () => trucks.find((truck) => truck.id === selectedTruckId) ?? null,
     [selectedTruckId, trucks]
   );
+  const officeTruckIds = useMemo(() => filteredTrucks.map((truck) => truck.id), [filteredTrucks]);
+  const remainingTruckIds = useMemo(
+    () => officeTruckIds.filter((truckId) => !completedTruckIds.has(truckId) && truckId !== selectedTruckId),
+    [completedTruckIds, officeTruckIds, selectedTruckId]
+  );
+  const canSubmitAndContinue = step === STEP_LABELS.length && remainingTruckIds.length > 0;
   const needsRegistrationInfo = Boolean(
     selectedTruck &&
       (!selectedTruck.registrationExpirationMonth || !selectedTruck.registrationExpirationYear)
@@ -316,6 +327,7 @@ export function InventoryWizard({
 
   async function goNext() {
     setError(null);
+    setSuccessMessage(null);
 
     if (step === 1) {
       const valid = await form.trigger("officeId");
@@ -351,16 +363,19 @@ export function InventoryWizard({
 
   function goBack() {
     setError(null);
+    setSuccessMessage(null);
     setStep((current) => Math.max(1, current - 1));
   }
 
-  function submitFinal() {
+  function submitFinal(options?: { continueToNextTruck?: boolean }) {
     setError(null);
+    setSuccessMessage(null);
     const values = form.getValues();
     const partialBucketNote = partialBucketSummary
       ? `Contrac Blox partial buckets (exception to unopened-only rule): ${partialBucketSummary}`
       : "";
     const mergedNotes = [values.notes?.trim(), partialBucketNote].filter(Boolean).join("\n\n");
+    const continueToNextTruck = Boolean(options?.continueToNextTruck);
 
     startTransition(async () => {
       const response = await submitTechnicianInventoryAction({
@@ -374,6 +389,42 @@ export function InventoryWizard({
         return;
       }
 
+      const submittedTruckId = values.truckId;
+      if (submittedTruckId) {
+        setCompletedTruckIds((current) => {
+          const next = new Set(current);
+          next.add(submittedTruckId);
+          return next;
+        });
+      }
+
+      if (continueToNextTruck) {
+        const nextTruckId = remainingTruckIds[0] ?? null;
+        if (!nextTruckId) {
+          localStorage.removeItem(draftKey);
+          router.push(`/inventory/success?submission=${response.submissionId}`);
+          return;
+        }
+
+        setUploadedFiles([]);
+        setPartialBuckets({});
+        form.setValue("officeAction", "SKIP");
+        form.setValue("truckId", nextTruckId);
+        form.setValue("truckCounts", mapCounts(truckItems));
+        form.setValue("odometerMiles", 0);
+        form.setValue("oilChangeCompleted", false);
+        form.setValue("maintenanceCheckCompleted", false);
+        form.setValue("lastOilChangeDate", "");
+        form.setValue("maintenanceNotes", "");
+        form.setValue("notes", "");
+        form.setValue("problemsReported", "");
+        form.setValue("missingDamagedNotes", "");
+        form.setValue("uploadedFileIds", []);
+        setStep(2);
+        setSuccessMessage("Truck submitted. Continue with the next truck.");
+        return;
+      }
+
       localStorage.removeItem(draftKey);
       router.push(`/inventory/success?submission=${response.submissionId}`);
     });
@@ -384,7 +435,7 @@ export function InventoryWizard({
       <Card>
         <CardTitle>Monthly Inventory Wizard</CardTitle>
         <CardDescription className="mt-1">
-          Complete office and truck counts for this month. Progress is auto-saved on this device.
+          Complete office and truck counts for this month. Submit one truck, then continue to the next without restarting.
         </CardDescription>
         <div className="mt-3 rounded-xl border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">
           <p className="font-semibold">Counting rule</p>
@@ -423,10 +474,16 @@ export function InventoryWizard({
               {filteredTrucks.map((truck) => (
                 <option key={truck.id} value={truck.id}>
                   {truck.name} - {truck.licensePlate}
+                  {completedTruckIds.has(truck.id) ? " (already submitted this month)" : ""}
                 </option>
               ))}
             </Select>
             <p className="text-sm text-red-600">{form.formState.errors.truckId?.message}</p>
+            {selectedOfficeId ? (
+              <p className="text-xs text-gray-600">
+                Remaining trucks without a monthly submission: {remainingTruckIds.length}
+              </p>
+            ) : null}
           </div>
         </Card>
       ) : null}
@@ -685,6 +742,11 @@ export function InventoryWizard({
           <p className="text-sm text-red-700">{error}</p>
         </Card>
       ) : null}
+      {successMessage ? (
+        <Card className="border-emerald-200 bg-emerald-50">
+          <p className="text-sm text-emerald-800">{successMessage}</p>
+        </Card>
+      ) : null}
 
       <div className="fixed inset-x-0 bottom-0 z-20 border-t border-gray-200 bg-white/95 px-4 py-3 backdrop-blur sm:px-6">
         <div className="mx-auto flex w-full max-w-3xl gap-3">
@@ -696,9 +758,21 @@ export function InventoryWizard({
               Continue
             </Button>
           ) : (
-            <Button className="flex-1" onClick={submitFinal} disabled={isPending}>
-              {isPending ? "Submitting..." : "Submit Inventory"}
-            </Button>
+            <>
+              {canSubmitAndContinue ? (
+                <Button
+                  variant="secondary"
+                  className="flex-1"
+                  onClick={() => submitFinal({ continueToNextTruck: true })}
+                  disabled={isPending}
+                >
+                  {isPending ? "Submitting..." : "Submit & Next Truck"}
+                </Button>
+              ) : null}
+              <Button className="flex-1" onClick={() => submitFinal()} disabled={isPending}>
+                {isPending ? "Submitting..." : "Submit & Finish"}
+              </Button>
+            </>
           )}
         </div>
       </div>
