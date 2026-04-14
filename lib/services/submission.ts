@@ -89,55 +89,114 @@ export async function createTechnicianSubmission(input: TechnicianSubmissionInpu
         throw new SubmissionError("A photo is required before submitting.");
       }
 
-      const officeSubmission = await tx.officeInventorySubmission.create({
-        data: {
-          month,
-          year,
-          monthlyCycleId: cycle.id,
-          officeId: office.id,
-          technicianName: validated.technicianName.trim(),
-          notes: normalizeText(validated.notes),
-          problemsReported: normalizeText(validated.problemsReported),
-          missingDamagedNotes: normalizeText(validated.missingDamagedNotes),
-          createdById: userId,
-          status: SubmissionStatus.SUBMITTED,
-          counts: {
-            createMany: {
-              data: validated.officeCounts.map((count) => ({
-                inventoryItemId: count.itemId,
-                quantity: count.quantity
-              }))
-            }
+      const existingOfficeSubmission = await tx.officeInventorySubmission.findUnique({
+        where: {
+          officeId_month_year: {
+            officeId: office.id,
+            month,
+            year
           }
-        }
+        },
+        select: { id: true }
       });
 
-      const truckSubmission = await tx.truckInventorySubmission.create({
-        data: {
-          month,
-          year,
-          monthlyCycleId: cycle.id,
-          truckId: truck.id,
-          technicianName: validated.technicianName.trim(),
-          odometerMiles: validated.odometerMiles,
-          oilChangeCompleted: validated.oilChangeCompleted,
-          maintenanceCheckCompleted: validated.maintenanceCheckCompleted,
-          lastOilChangeDate: normalizeDateInput(validated.lastOilChangeDate),
-          maintenanceNotes: normalizeText(validated.maintenanceNotes),
-          notes: normalizeText(validated.notes),
-          problemsReported: normalizeText(validated.problemsReported),
-          missingDamagedNotes: normalizeText(validated.missingDamagedNotes),
-          createdById: userId,
-          status: SubmissionStatus.SUBMITTED,
-          counts: {
-            createMany: {
-              data: validated.truckCounts.map((count) => ({
-                inventoryItemId: count.itemId,
-                quantity: count.quantity
-              }))
+      const officeSubmission = existingOfficeSubmission
+        ? await tx.officeInventorySubmission.update({
+            where: { id: existingOfficeSubmission.id },
+            data: {
+              monthlyCycleId: cycle.id,
+              technicianName: validated.technicianName.trim(),
+              notes: normalizeText(validated.notes),
+              problemsReported: normalizeText(validated.problemsReported),
+              missingDamagedNotes: normalizeText(validated.missingDamagedNotes),
+              updatedById: userId,
+              isManuallyUnlocked: false,
+              submittedAt: new Date(),
+              status: SubmissionStatus.RESUBMITTED
             }
+          })
+        : await tx.officeInventorySubmission.create({
+            data: {
+              month,
+              year,
+              monthlyCycleId: cycle.id,
+              officeId: office.id,
+              technicianName: validated.technicianName.trim(),
+              notes: normalizeText(validated.notes),
+              problemsReported: normalizeText(validated.problemsReported),
+              missingDamagedNotes: normalizeText(validated.missingDamagedNotes),
+              createdById: userId,
+              status: SubmissionStatus.SUBMITTED
+            }
+          });
+
+      await tx.officeInventoryCount.deleteMany({ where: { submissionId: officeSubmission.id } });
+      await tx.officeInventoryCount.createMany({
+        data: validated.officeCounts.map((count) => ({
+          submissionId: officeSubmission.id,
+          inventoryItemId: count.itemId,
+          quantity: count.quantity
+        }))
+      });
+
+      const existingTruckSubmission = await tx.truckInventorySubmission.findUnique({
+        where: {
+          truckId_month_year: {
+            truckId: truck.id,
+            month,
+            year
           }
-        }
+        },
+        select: { id: true }
+      });
+
+      const truckSubmission = existingTruckSubmission
+        ? await tx.truckInventorySubmission.update({
+            where: { id: existingTruckSubmission.id },
+            data: {
+              monthlyCycleId: cycle.id,
+              technicianName: validated.technicianName.trim(),
+              odometerMiles: validated.odometerMiles,
+              oilChangeCompleted: validated.oilChangeCompleted,
+              maintenanceCheckCompleted: validated.maintenanceCheckCompleted,
+              lastOilChangeDate: normalizeDateInput(validated.lastOilChangeDate),
+              maintenanceNotes: normalizeText(validated.maintenanceNotes),
+              notes: normalizeText(validated.notes),
+              problemsReported: normalizeText(validated.problemsReported),
+              missingDamagedNotes: normalizeText(validated.missingDamagedNotes),
+              updatedById: userId,
+              isManuallyUnlocked: false,
+              submittedAt: new Date(),
+              status: SubmissionStatus.RESUBMITTED
+            }
+          })
+        : await tx.truckInventorySubmission.create({
+            data: {
+              month,
+              year,
+              monthlyCycleId: cycle.id,
+              truckId: truck.id,
+              technicianName: validated.technicianName.trim(),
+              odometerMiles: validated.odometerMiles,
+              oilChangeCompleted: validated.oilChangeCompleted,
+              maintenanceCheckCompleted: validated.maintenanceCheckCompleted,
+              lastOilChangeDate: normalizeDateInput(validated.lastOilChangeDate),
+              maintenanceNotes: normalizeText(validated.maintenanceNotes),
+              notes: normalizeText(validated.notes),
+              problemsReported: normalizeText(validated.problemsReported),
+              missingDamagedNotes: normalizeText(validated.missingDamagedNotes),
+              createdById: userId,
+              status: SubmissionStatus.SUBMITTED
+            }
+          });
+
+      await tx.truckInventoryCount.deleteMany({ where: { submissionId: truckSubmission.id } });
+      await tx.truckInventoryCount.createMany({
+        data: validated.truckCounts.map((count) => ({
+          submissionId: truckSubmission.id,
+          inventoryItemId: count.itemId,
+          quantity: count.quantity
+        }))
       });
 
       if (validated.uploadedFileIds?.length) {
@@ -182,12 +241,6 @@ export async function createTechnicianSubmission(input: TechnicianSubmissionInpu
   } catch (error) {
     if (error instanceof SubmissionError) {
       throw error;
-    }
-
-    if (isDuplicateConstraintError(error)) {
-      throw new SubmissionError(
-        "A submission already exists for this office or truck in the current month. Ask an admin to unlock first."
-      );
     }
 
     throw error;

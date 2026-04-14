@@ -41,9 +41,7 @@ Admin flow:
 
 ## Core Business Rules Implemented
 - Distinct office and truck submission records, created in one technician flow
-- Duplicate monthly submissions blocked by unique constraints:
-  - one office submission per office/month/year
-  - one truck submission per truck/month/year
+- One office and one truck monthly record per target; repeat technician submits in the same month update (resubmit) that record
 - Month lock prevents edits/resubmits until unlocked by admin
 - Required-this-month overrides for offices and trucks
 - Automatic final-month email sends once when all required submissions complete
