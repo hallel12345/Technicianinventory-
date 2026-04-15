@@ -80,6 +80,7 @@ export const submissionEditSchema = z
     submissionId: z.string().min(1),
     technicianName: z.string().min(2),
     odometerMiles: z.number().int().min(0).optional(),
+    lastOilChangeMiles: z.number().int().min(0).optional(),
     oilChangeCompleted: z.boolean().optional(),
     maintenanceCheckCompleted: z.boolean().optional(),
     lastOilChangeDate: z
@@ -99,6 +100,19 @@ export const submissionEditSchema = z
         code: z.ZodIssueCode.custom,
         path: ["odometerMiles"],
         message: "Truck mileage is required."
+      });
+    }
+
+    if (
+      value.submissionType === "truck" &&
+      value.lastOilChangeMiles !== undefined &&
+      value.odometerMiles !== undefined &&
+      value.lastOilChangeMiles > value.odometerMiles
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["lastOilChangeMiles"],
+        message: "Last oil change miles must be less than or equal to odometer miles."
       });
     }
   });

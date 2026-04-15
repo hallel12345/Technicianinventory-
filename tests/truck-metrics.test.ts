@@ -28,6 +28,20 @@ describe("truck mileage metrics", () => {
     expect(resetAt5000.oilChangeProgressPercent).toBe(0);
   });
 
+  it("uses explicit last-oil-change baseline mileage when available", () => {
+    const progress = calculateOilCycleProgress(208250, 205000);
+    expect(progress.milesIntoOilCycle).toBe(3250);
+    expect(progress.milesUntilOilChange).toBe(1750);
+    expect(progress.oilChangeProgressPercent).toBe(65);
+  });
+
+  it("returns null cycle progress when baseline miles are greater than odometer", () => {
+    const progress = calculateOilCycleProgress(100000, 100500);
+    expect(progress.milesIntoOilCycle).toBeNull();
+    expect(progress.milesUntilOilChange).toBeNull();
+    expect(progress.oilChangeProgressPercent).toBeNull();
+  });
+
   it("maps progress percent to state and due flag", () => {
     expect(getOilProgressState(20)).toBe("green");
     expect(getOilProgressState(70)).toBe("yellow");

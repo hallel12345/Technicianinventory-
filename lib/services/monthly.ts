@@ -15,6 +15,7 @@ type RequiredEntityStatus = {
 };
 
 type RequiredTruckStatus = RequiredEntityStatus & {
+  lastOilChangeMiles: number | null;
   registrationExpirationMonth: number | null;
   registrationExpirationYear: number | null;
 };
@@ -26,6 +27,7 @@ export type MonthlySnapshotEntity = RequiredEntityStatus & {
   submittedAt?: Date;
   registrationExpirationMonth?: number | null;
   registrationExpirationYear?: number | null;
+  lastOilChangeMiles?: number | null;
   registrationStatus?: RegistrationStatus;
   odometerMiles?: number;
   trackingStartOdometerMiles?: number | null;
@@ -69,6 +71,7 @@ export async function getRequiredTargetsForMonth(tx: MonthlyReadClient, month: n
         name: true,
         licensePlate: true,
         requiredByDefault: true,
+        lastOilChangeMiles: true,
         registrationExpirationMonth: true,
         registrationExpirationYear: true,
         office: { select: { name: true } }
@@ -101,6 +104,7 @@ export async function getRequiredTargetsForMonth(tx: MonthlyReadClient, month: n
     id: truck.id,
     name: `${truck.name} - ${truck.licensePlate}${truck.office?.name ? ` (${truck.office.name})` : ""}`,
     required: truckOverrideMap.get(truck.id) ?? truck.requiredByDefault,
+    lastOilChangeMiles: truck.lastOilChangeMiles ?? null,
     registrationExpirationMonth: truck.registrationExpirationMonth ?? null,
     registrationExpirationYear: truck.registrationExpirationYear ?? null
   }));
@@ -237,6 +241,7 @@ export async function getMonthlySnapshot(month: number, year: number) {
       submittedAt: submission?.submittedAt,
       registrationExpirationMonth: truck.registrationExpirationMonth,
       registrationExpirationYear: truck.registrationExpirationYear,
+      lastOilChangeMiles: truck.lastOilChangeMiles,
       registrationStatus,
       odometerMiles: submission?.odometerMiles,
       trackingStartOdometerMiles: mileageMetrics?.trackingStartOdometerMiles,

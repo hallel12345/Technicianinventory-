@@ -306,6 +306,12 @@ export default async function AdminDashboardPage({
                       Last oil change date (manual):{" "}
                       {truck.lastOilChangeDate ? format(truck.lastOilChangeDate, "MMM d, yyyy") : "-"}
                     </p>
+                    <p>
+                      Last oil change mileage (baseline):{" "}
+                      {truck.lastOilChangeMiles !== null && truck.lastOilChangeMiles !== undefined
+                        ? `${truck.lastOilChangeMiles} miles`
+                        : "-"}
+                    </p>
                     <p>Maintenance check completed: {truck.maintenanceCheckCompleted ? "Yes" : "No"}</p>
                     <p>Maintenance notes: {truck.maintenanceNotes || "-"}</p>
                     {truck.oilChangeDue ? <p className="font-semibold text-red-700">Oil change due soon.</p> : null}

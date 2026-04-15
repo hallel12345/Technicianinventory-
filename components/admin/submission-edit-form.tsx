@@ -19,6 +19,7 @@ export function SubmissionEditForm({
   submissionId,
   technicianName,
   odometerMiles,
+  lastOilChangeMiles,
   oilChangeCompleted,
   maintenanceCheckCompleted,
   lastOilChangeDate,
@@ -32,6 +33,7 @@ export function SubmissionEditForm({
   submissionId: string;
   technicianName: string;
   odometerMiles?: number;
+  lastOilChangeMiles?: number;
   oilChangeCompleted?: boolean;
   maintenanceCheckCompleted?: boolean;
   lastOilChangeDate?: string;
@@ -47,6 +49,9 @@ export function SubmissionEditForm({
 
   const [name, setName] = useState(technicianName);
   const [mileageValue, setMileageValue] = useState<number>(odometerMiles ?? 0);
+  const [lastOilChangeMilesValue, setLastOilChangeMilesValue] = useState<number | "">(
+    lastOilChangeMiles ?? ""
+  );
   const [oilChangedValue, setOilChangedValue] = useState<boolean>(oilChangeCompleted ?? false);
   const [maintenanceCheckValue, setMaintenanceCheckValue] = useState<boolean>(maintenanceCheckCompleted ?? false);
   const [lastOilChangeDateValue, setLastOilChangeDateValue] = useState<string>(lastOilChangeDate ?? "");
@@ -86,12 +91,32 @@ export function SubmissionEditForm({
               onChange={(event) => setMileageValue(Math.max(0, Number(event.target.value || 0)))}
             />
           </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">Last Oil Change Miles</label>
+            <Input
+              type="number"
+              min={0}
+              step={1}
+              value={String(lastOilChangeMilesValue)}
+              onChange={(event) =>
+                setLastOilChangeMilesValue(
+                  event.target.value === "" ? "" : Math.max(0, Number(event.target.value || 0))
+                )
+              }
+            />
+          </div>
           <div className="grid gap-2">
             <label className="flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm">
               <input
                 type="checkbox"
                 checked={oilChangedValue}
-                onChange={(event) => setOilChangedValue(event.target.checked)}
+                onChange={(event) => {
+                  const checked = event.target.checked;
+                  setOilChangedValue(checked);
+                  if (checked) {
+                    setLastOilChangeMilesValue(mileageValue);
+                  }
+                }}
               />
               Oil change completed
             </label>
@@ -164,6 +189,10 @@ export function SubmissionEditForm({
               submissionId,
               technicianName: name,
               odometerMiles: submissionType === "truck" ? mileageValue : undefined,
+              lastOilChangeMiles:
+                submissionType === "truck" && lastOilChangeMilesValue !== ""
+                  ? Number(lastOilChangeMilesValue)
+                  : undefined,
               oilChangeCompleted: submissionType === "truck" ? oilChangedValue : undefined,
               maintenanceCheckCompleted: submissionType === "truck" ? maintenanceCheckValue : undefined,
               lastOilChangeDate: submissionType === "truck" ? lastOilChangeDateValue : undefined,

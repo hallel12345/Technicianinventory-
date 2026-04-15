@@ -359,6 +359,7 @@ export async function editSubmissionAction(rawInput: unknown) {
         technicianName: input.technicianName,
         countCount: input.counts.length,
         odometerMiles: input.submissionType === "truck" ? input.odometerMiles : undefined,
+        lastOilChangeMiles: input.submissionType === "truck" ? input.lastOilChangeMiles : undefined,
         lastOilChangeDate: input.submissionType === "truck" ? input.lastOilChangeDate : undefined
       }
     });

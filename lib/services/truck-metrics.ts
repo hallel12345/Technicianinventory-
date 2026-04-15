@@ -2,7 +2,7 @@ import type { Prisma } from "@prisma/client";
 
 export const OIL_CHANGE_INTERVAL_MILES = 5000;
 
-type TruckMetricsClient = Pick<Prisma.TransactionClient, "truckInventorySubmission">;
+type TruckMetricsClient = Pick<Prisma.TransactionClient, "truckInventorySubmission" | "truck">;
 
 export type TruckMileageMetrics = {
   trackingStartOdometerMiles: number | null;
@@ -91,24 +91,30 @@ export async function getTruckMileageMetricsMap(
 ) {
   const metrics = await Promise.all(
     submissions.map(async (submission) => {
-      const previous = await client.truckInventorySubmission.findFirst({
-        where: {
-          truckId: submission.truckId,
-          OR: [{ year: { lt: submission.year } }, { year: submission.year, month: { lt: submission.month } }]
-        },
-        orderBy: [{ year: "desc" }, { month: "desc" }],
-        select: { odometerMiles: true }
-      });
-      const firstRecorded = await client.truckInventorySubmission.findFirst({
-        where: {
-          truckId: submission.truckId
-        },
-        orderBy: [{ year: "asc" }, { month: "asc" }],
-        select: { odometerMiles: true }
-      });
+      const [previous, firstRecorded, truck] = await Promise.all([
+        client.truckInventorySubmission.findFirst({
+          where: {
+            truckId: submission.truckId,
+            OR: [{ year: { lt: submission.year } }, { year: submission.year, month: { lt: submission.month } }]
+          },
+          orderBy: [{ year: "desc" }, { month: "desc" }],
+          select: { odometerMiles: true }
+        }),
+        client.truckInventorySubmission.findFirst({
+          where: {
+            truckId: submission.truckId
+          },
+          orderBy: [{ year: "asc" }, { month: "asc" }],
+          select: { odometerMiles: true }
+        }),
+        client.truck.findUnique({
+          where: { id: submission.truckId },
+          select: { lastOilChangeMiles: true }
+        })
+      ]);
 
       const previousOdometerMiles = previous?.odometerMiles ?? null;
-      const trackingStartOdometerMiles = firstRecorded?.odometerMiles ?? null;
+      const trackingStartOdometerMiles = truck?.lastOilChangeMiles ?? firstRecorded?.odometerMiles ?? null;
       const milesDrivenSinceLast = calculateMilesDrivenSinceLast(submission.odometerMiles, previousOdometerMiles);
       const oilCycleProgress = calculateOilCycleProgress(submission.odometerMiles, trackingStartOdometerMiles);
       const oilChangeProgressState = getOilProgressState(oilCycleProgress.oilChangeProgressPercent);

@@ -18,6 +18,11 @@ const technicianSubmissionBaseSchema = z.object({
     .number({ invalid_type_error: "Enter whole miles" })
     .int("Mileage must be an integer")
     .min(0, "Mileage cannot be negative"),
+  lastOilChangeMiles: z
+    .number({ invalid_type_error: "Enter whole miles" })
+    .int("Last oil change miles must be an integer")
+    .min(0, "Last oil change miles cannot be negative")
+    .optional(),
   oilChangeCompleted: z.boolean().default(false),
   maintenanceCheckCompleted: z.boolean().default(false),
   lastOilChangeDate: z
@@ -66,6 +71,17 @@ export const technicianSubmissionSchema = technicianSubmissionBaseSchema
         code: z.ZodIssueCode.custom,
         message: "Duplicate truck inventory items found.",
         path: ["truckCounts"]
+      });
+    }
+
+    if (
+      value.lastOilChangeMiles !== undefined &&
+      value.lastOilChangeMiles > value.odometerMiles
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Last oil change miles must be less than or equal to odometer miles.",
+        path: ["lastOilChangeMiles"]
       });
     }
   });

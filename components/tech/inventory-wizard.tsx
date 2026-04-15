@@ -27,6 +27,7 @@ type TruckOption = {
   name: string;
   licensePlate: string;
   officeId: string | null;
+  lastOilChangeMiles: number | null;
   registrationExpirationMonth: number | null;
   registrationExpirationYear: number | null;
   hasCurrentSubmission: boolean;
@@ -168,6 +169,7 @@ export function InventoryWizard({
       registrationExpirationMonth: undefined,
       registrationExpirationYear: undefined,
       odometerMiles: 0,
+      lastOilChangeMiles: undefined,
       oilChangeCompleted: false,
       maintenanceCheckCompleted: false,
       lastOilChangeDate: "",
@@ -207,6 +209,7 @@ export function InventoryWizard({
         registrationExpirationMonth: parsed.registrationExpirationMonth,
         registrationExpirationYear: parsed.registrationExpirationYear,
         odometerMiles: parsed.odometerMiles ?? 0,
+        lastOilChangeMiles: parsed.lastOilChangeMiles,
         oilChangeCompleted: parsed.oilChangeCompleted ?? false,
         maintenanceCheckCompleted: parsed.maintenanceCheckCompleted ?? false,
         lastOilChangeDate: parsed.lastOilChangeDate ?? "",
@@ -283,11 +286,12 @@ export function InventoryWizard({
     if (selectedTruck.registrationExpirationMonth && selectedTruck.registrationExpirationYear) {
       form.setValue("registrationExpirationMonth", selectedTruck.registrationExpirationMonth);
       form.setValue("registrationExpirationYear", selectedTruck.registrationExpirationYear);
-      return;
+    } else {
+      form.setValue("registrationExpirationMonth", undefined);
+      form.setValue("registrationExpirationYear", undefined);
     }
 
-    form.setValue("registrationExpirationMonth", undefined);
-    form.setValue("registrationExpirationYear", undefined);
+    form.setValue("lastOilChangeMiles", selectedTruck.lastOilChangeMiles ?? undefined);
   }, [form, selectedTruck]);
 
   async function uploadFiles(files: FileList | null) {
@@ -348,6 +352,7 @@ export function InventoryWizard({
         "registrationExpirationMonth",
         "registrationExpirationYear",
         "odometerMiles",
+        "lastOilChangeMiles",
         "technicianName",
         "notes",
         "problemsReported",
@@ -412,6 +417,7 @@ export function InventoryWizard({
         form.setValue("truckId", nextTruckId);
         form.setValue("truckCounts", mapCounts(truckItems));
         form.setValue("odometerMiles", 0);
+        form.setValue("lastOilChangeMiles", nextTruckId ? (trucks.find((truck) => truck.id === nextTruckId)?.lastOilChangeMiles ?? undefined) : undefined);
         form.setValue("oilChangeCompleted", false);
         form.setValue("maintenanceCheckCompleted", false);
         form.setValue("lastOilChangeDate", "");
@@ -649,6 +655,42 @@ export function InventoryWizard({
               <p className="text-sm text-red-600">{form.formState.errors.odometerMiles?.message}</p>
             </div>
             <div>
+              <label className="mb-1 block text-sm font-medium text-gray-700">Last Oil Change Miles</label>
+              <Input
+                type="number"
+                min={0}
+                step={1}
+                {...form.register("lastOilChangeMiles", {
+                  setValueAs: (value) => (value === "" ? undefined : Number(value))
+                })}
+              />
+              <p className="text-sm text-red-600">{form.formState.errors.lastOilChangeMiles?.message}</p>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <label className="flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={form.watch("oilChangeCompleted")}
+                  onChange={(event) => {
+                    const checked = event.target.checked;
+                    form.setValue("oilChangeCompleted", checked);
+                    if (checked) {
+                      form.setValue("lastOilChangeMiles", form.getValues("odometerMiles"));
+                    }
+                  }}
+                />
+                Oil change completed
+              </label>
+              <label className="flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={form.watch("maintenanceCheckCompleted")}
+                  onChange={(event) => form.setValue("maintenanceCheckCompleted", event.target.checked)}
+                />
+                Maintenance check completed
+              </label>
+            </div>
+            <div>
               <label className="mb-1 block text-sm font-medium text-gray-700">Technician Name</label>
               <Input {...form.register("technicianName")} />
               <p className="text-sm text-red-600">{form.formState.errors.technicianName?.message}</p>
@@ -706,6 +748,16 @@ export function InventoryWizard({
             </p>
             <p>
               <strong>Truck Odometer:</strong> {form.getValues("odometerMiles")} miles
+            </p>
+            <p>
+              <strong>Last Oil Change Miles:</strong> {form.getValues("lastOilChangeMiles") ?? "-"}
+            </p>
+            <p>
+              <strong>Oil Change Completed:</strong> {form.getValues("oilChangeCompleted") ? "Yes" : "No"}
+            </p>
+            <p>
+              <strong>Maintenance Check Completed:</strong>{" "}
+              {form.getValues("maintenanceCheckCompleted") ? "Yes" : "No"}
             </p>
             <p>
               <strong>Registration Expires:</strong>{" "}

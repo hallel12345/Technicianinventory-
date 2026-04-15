@@ -23,6 +23,7 @@ export default async function InventoryPage() {
         name: true,
         licensePlate: true,
         officeId: true,
+        lastOilChangeMiles: true,
         registrationExpirationMonth: true,
         registrationExpirationYear: true
       }

@@ -119,6 +119,7 @@ export default async function AdminSubmissionDetailPage({
           submissionId={submission.id}
           technicianName={submission.technicianName}
           odometerMiles={submission.odometerMiles}
+          lastOilChangeMiles={submission.truck.lastOilChangeMiles ?? undefined}
           oilChangeCompleted={submission.oilChangeCompleted}
           maintenanceCheckCompleted={submission.maintenanceCheckCompleted}
           lastOilChangeDate={submission.lastOilChangeDate ? submission.lastOilChangeDate.toISOString().slice(0, 10) : ""}

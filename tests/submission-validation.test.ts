@@ -8,6 +8,7 @@ describe("technicianSubmissionSchema", () => {
       officeId: "office-1",
       truckId: "truck-1",
       odometerMiles: 123456,
+      lastOilChangeMiles: 123000,
       oilChangeCompleted: false,
       maintenanceCheckCompleted: true,
       lastOilChangeDate: "2026-04-01",
@@ -101,6 +102,22 @@ describe("technicianSubmissionSchema", () => {
       truckId: "truck-1",
       registrationExpirationMonth: 4,
       odometerMiles: 1000,
+      oilChangeCompleted: false,
+      maintenanceCheckCompleted: false,
+      technicianName: "Tester",
+      officeCounts: [{ itemId: "a", quantity: 1 }],
+      truckCounts: [{ itemId: "b", quantity: 1 }]
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects last oil change miles greater than odometer", () => {
+    const result = technicianSubmissionSchema.safeParse({
+      officeId: "office-1",
+      truckId: "truck-1",
+      odometerMiles: 1000,
+      lastOilChangeMiles: 1001,
       oilChangeCompleted: false,
       maintenanceCheckCompleted: false,
       technicianName: "Tester",

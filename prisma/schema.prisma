@@ -106,6 +106,7 @@ model Truck {
   id               String                        @id @default(cuid())
   name             String
   licensePlate     String                        @unique
+  lastOilChangeMiles Int?
   registrationExpirationMonth Int?
   registrationExpirationYear  Int?
   isActive         Boolean                       @default(true)

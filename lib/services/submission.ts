@@ -164,6 +164,10 @@ export async function createTechnicianSubmission(input: TechnicianSubmissionInpu
         select: { id: true }
       });
 
+      const nextLastOilChangeMiles = validated.oilChangeCompleted
+        ? validated.odometerMiles
+        : validated.lastOilChangeMiles;
+
       const truckSubmission = existingTruckSubmission
         ? await tx.truckInventorySubmission.update({
             where: { id: existingTruckSubmission.id },
@@ -203,6 +207,13 @@ export async function createTechnicianSubmission(input: TechnicianSubmissionInpu
               status: SubmissionStatus.SUBMITTED
             }
           });
+
+      if (nextLastOilChangeMiles !== undefined) {
+        await tx.truck.update({
+          where: { id: truck.id },
+          data: { lastOilChangeMiles: nextLastOilChangeMiles }
+        });
+      }
 
       await tx.truckInventoryCount.deleteMany({ where: { submissionId: truckSubmission.id } });
       await tx.truckInventoryCount.createMany({
@@ -272,6 +283,7 @@ export async function editSubmission(input: {
   submissionId: string;
   technicianName: string;
   odometerMiles?: number;
+  lastOilChangeMiles?: number;
   oilChangeCompleted?: boolean;
   maintenanceCheckCompleted?: boolean;
   lastOilChangeDate?: string;
@@ -325,7 +337,7 @@ export async function editSubmission(input: {
 
     const existing = await tx.truckInventorySubmission.findUnique({
       where: { id: input.submissionId },
-      select: { id: true, month: true, year: true, monthlyCycleId: true }
+      select: { id: true, month: true, year: true, monthlyCycleId: true, truckId: true }
     });
 
     if (!existing) {
@@ -353,6 +365,17 @@ export async function editSubmission(input: {
         status: SubmissionStatus.EDITED
       }
     });
+
+    const nextLastOilChangeMiles = input.oilChangeCompleted
+      ? input.odometerMiles
+      : input.lastOilChangeMiles;
+
+    if (nextLastOilChangeMiles !== undefined) {
+      await tx.truck.update({
+        where: { id: existing.truckId },
+        data: { lastOilChangeMiles: nextLastOilChangeMiles }
+      });
+    }
 
     await tx.truckInventoryCount.deleteMany({ where: { submissionId: existing.id } });
     await tx.truckInventoryCount.createMany({
