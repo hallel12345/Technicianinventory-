@@ -184,31 +184,35 @@ export function SubmissionEditForm({
           setMessage(null);
           setError(null);
           startTransition(async () => {
-            const result = await editSubmissionAction({
-              submissionType,
-              submissionId,
-              technicianName: name,
-              odometerMiles: submissionType === "truck" ? mileageValue : undefined,
-              lastOilChangeMiles:
-                submissionType === "truck" && lastOilChangeMilesValue !== ""
-                  ? Number(lastOilChangeMilesValue)
-                  : undefined,
-              oilChangeCompleted: submissionType === "truck" ? oilChangedValue : undefined,
-              maintenanceCheckCompleted: submissionType === "truck" ? maintenanceCheckValue : undefined,
-              lastOilChangeDate: submissionType === "truck" ? lastOilChangeDateValue : undefined,
-              maintenanceNotes: submissionType === "truck" ? maintenanceNotesValue : undefined,
-              notes: notesValue,
-              problemsReported: problemsValue,
-              missingDamagedNotes: missingValue,
-              counts: countsState.map((count) => ({ itemId: count.itemId, quantity: count.quantity }))
-            });
+            try {
+              const result = await editSubmissionAction({
+                submissionType,
+                submissionId,
+                technicianName: name,
+                odometerMiles: submissionType === "truck" ? mileageValue : undefined,
+                lastOilChangeMiles:
+                  submissionType === "truck" && lastOilChangeMilesValue !== ""
+                    ? Number(lastOilChangeMilesValue)
+                    : undefined,
+                oilChangeCompleted: submissionType === "truck" ? oilChangedValue : undefined,
+                maintenanceCheckCompleted: submissionType === "truck" ? maintenanceCheckValue : undefined,
+                lastOilChangeDate: submissionType === "truck" ? lastOilChangeDateValue : undefined,
+                maintenanceNotes: submissionType === "truck" ? maintenanceNotesValue : undefined,
+                notes: notesValue,
+                problemsReported: problemsValue,
+                missingDamagedNotes: missingValue,
+                counts: countsState.map((count) => ({ itemId: count.itemId, quantity: count.quantity }))
+              });
 
-            if (!result.success) {
-              setError(result.error ?? "Failed to save changes.");
-              return;
+              if (!result.success) {
+                setError(result.error ?? "Failed to save changes.");
+                return;
+              }
+
+              setMessage("Submission updated.");
+            } catch (error) {
+              setError(error instanceof Error ? error.message : "Failed to save changes.");
             }
-
-            setMessage("Submission updated.");
           });
         }}
         disabled={isPending}

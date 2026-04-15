@@ -5,25 +5,6 @@ import { Role } from "@prisma/client";
 
 import { db } from "@/lib/db";
 
-const LOCKOUT_WINDOW_MINUTES = 15;
-const MAX_FAILED_ATTEMPTS = 5;
-
-async function handleFailedLogin(userId: string, attempts: number) {
-  const nextAttempts = attempts + 1;
-  const lockUntil =
-    nextAttempts >= MAX_FAILED_ATTEMPTS
-      ? new Date(Date.now() + LOCKOUT_WINDOW_MINUTES * 60_000)
-      : null;
-
-  await db.user.update({
-    where: { id: userId },
-    data: {
-      failedLoginAttempts: nextAttempts,
-      lockedUntil: lockUntil
-    }
-  });
-}
-
 export const { handlers, auth, signIn, signOut } = NextAuth({
   trustHost: true,
   session: {
@@ -50,8 +31,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           where: {
             role: Role.TECHNICIAN,
             isActive: true,
-            pinHash: { not: null },
-            OR: [{ lockedUntil: null }, { lockedUntil: { lte: new Date() } }]
+            pinHash: { not: null }
           },
           select: {
             id: true,
@@ -59,8 +39,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             email: true,
             role: true,
             officeId: true,
-            pinHash: true,
-            failedLoginAttempts: true
+            pinHash: true
           }
         });
 
@@ -119,8 +98,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           where: {
             role: Role.ADMIN,
             isActive: true,
-            passwordHash: { not: null },
-            OR: [{ lockedUntil: null }, { lockedUntil: { lte: new Date() } }]
+            passwordHash: { not: null }
           },
           select: {
             id: true,
@@ -128,8 +106,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             email: true,
             role: true,
             officeId: true,
-            passwordHash: true,
-            failedLoginAttempts: true
+            passwordHash: true
           }
         });
 
@@ -149,9 +126,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         }
 
         if (!matchedUsers.length) {
-          if (eligibleAdmins.length === 1) {
-            await handleFailedLogin(eligibleAdmins[0].id, eligibleAdmins[0].failedLoginAttempts);
-          }
           return null;
         }
         const user = matchedUsers[0];
