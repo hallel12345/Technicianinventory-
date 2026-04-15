@@ -89,13 +89,17 @@ async function main() {
       name: "Pure Pest Admin",
       role: Role.ADMIN,
       isActive: true,
-      passwordHash: adminPasswordHash
+      passwordHash: adminPasswordHash,
+      failedLoginAttempts: 0,
+      lockedUntil: null
     },
     create: {
       name: "Pure Pest Admin",
       email: "admin@purepest.local",
       role: Role.ADMIN,
-      passwordHash: adminPasswordHash
+      passwordHash: adminPasswordHash,
+      failedLoginAttempts: 0,
+      lockedUntil: null
     }
   });
 
@@ -108,7 +112,9 @@ async function main() {
         role: Role.TECHNICIAN,
         pinHash,
         officeId: officeMap.get(tech.office),
-        isActive: tech.isActive
+        isActive: tech.isActive,
+        failedLoginAttempts: 0,
+        lockedUntil: null
       },
       create: {
         name: tech.name,
@@ -116,7 +122,9 @@ async function main() {
         role: Role.TECHNICIAN,
         pinHash,
         officeId: officeMap.get(tech.office),
-        isActive: tech.isActive
+        isActive: tech.isActive,
+        failedLoginAttempts: 0,
+        lockedUntil: null
       }
     });
   }
