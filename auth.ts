@@ -8,19 +8,93 @@ import { db } from "@/lib/db";
 const LOCKOUT_WINDOW_MINUTES = 15;
 const MAX_FAILED_ATTEMPTS = 5;
 
-async function handleFailedLogin(userId: string, attempts: number) {
-  const nextAttempts = attempts + 1;
-  const lockUntil =
-    nextAttempts >= MAX_FAILED_ATTEMPTS
-      ? new Date(Date.now() + LOCKOUT_WINDOW_MINUTES * 60_000)
-      : null;
+type LoginCandidate = {
+  id: string;
+  name: string;
+  email: string | null;
+  role: Role;
+  officeId: string | null;
+  failedLoginAttempts: number;
+  lockedUntil: Date | null;
+};
+
+function logAuthEvent(
+  event:
+    | "LOGIN_FAILED"
+    | "LOGIN_FAILED_UNTRACKED"
+    | "LOGIN_LOCKED"
+    | "LOGIN_LOCK_APPLIED"
+    | "LOGIN_UNLOCK_EXPIRED"
+    | "LOGIN_SUCCESS_RESET",
+  details: Record<string, unknown>
+) {
+  console.info(`[auth] ${event}`, details);
+}
+
+function isLocked(user: Pick<LoginCandidate, "lockedUntil">, now: Date) {
+  return Boolean(user.lockedUntil && user.lockedUntil > now);
+}
+
+async function recordFailedAttempt(user: LoginCandidate, now: Date, reason: string) {
+  let baseAttempts = user.failedLoginAttempts;
+  if (user.lockedUntil && user.lockedUntil <= now) {
+    logAuthEvent("LOGIN_UNLOCK_EXPIRED", {
+      role: user.role,
+      userId: user.id,
+      reason: "expired-before-failed-attempt"
+    });
+    baseAttempts = 0;
+  }
+
+  const nextAttempts = baseAttempts + 1;
+  const shouldLock = nextAttempts >= MAX_FAILED_ATTEMPTS;
+  const lockUntil = shouldLock ? new Date(now.getTime() + LOCKOUT_WINDOW_MINUTES * 60_000) : null;
 
   await db.user.update({
-    where: { id: userId },
+    where: { id: user.id },
     data: {
       failedLoginAttempts: nextAttempts,
       lockedUntil: lockUntil
     }
+  });
+
+  logAuthEvent("LOGIN_FAILED", {
+    role: user.role,
+    userId: user.id,
+    reason,
+    failedLoginAttempts: nextAttempts
+  });
+
+  if (shouldLock && lockUntil) {
+    logAuthEvent("LOGIN_LOCK_APPLIED", {
+      role: user.role,
+      userId: user.id,
+      lockUntil: lockUntil.toISOString()
+    });
+  }
+}
+
+async function resetSuccessfulLogin(user: LoginCandidate, now: Date) {
+  if (user.lockedUntil && user.lockedUntil <= now) {
+    logAuthEvent("LOGIN_UNLOCK_EXPIRED", {
+      role: user.role,
+      userId: user.id,
+      reason: "expired-before-success"
+    });
+  }
+
+  await db.user.update({
+    where: { id: user.id },
+    data: {
+      failedLoginAttempts: 0,
+      lockedUntil: null,
+      lastLoginAt: now
+    }
+  });
+
+  logAuthEvent("LOGIN_SUCCESS_RESET", {
+    role: user.role,
+    userId: user.id
   });
 }
 
@@ -50,8 +124,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           where: {
             role: Role.TECHNICIAN,
             isActive: true,
-            pinHash: { not: null },
-            OR: [{ lockedUntil: null }, { lockedUntil: { lte: new Date() } }]
+            pinHash: { not: null }
           },
           select: {
             id: true,
@@ -60,7 +133,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             role: true,
             officeId: true,
             pinHash: true,
-            failedLoginAttempts: true
+            failedLoginAttempts: true,
+            lockedUntil: true
           }
         });
 
@@ -80,18 +154,32 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         }
 
         if (matchedUsers.length !== 1) {
+          const now = new Date();
+          const unlockedCandidates = eligibleTechnicians.filter((user) => !isLocked(user, now));
+          if (unlockedCandidates.length === 1) {
+            await recordFailedAttempt(unlockedCandidates[0], now, "technician-pin-mismatch");
+          } else {
+            logAuthEvent("LOGIN_FAILED_UNTRACKED", {
+              role: Role.TECHNICIAN,
+              reason: "no-single-user-attribution",
+              unlockedCandidateCount: unlockedCandidates.length
+            });
+          }
           return null;
         }
         const user = matchedUsers[0];
+        const now = new Date();
 
-        await db.user.update({
-          where: { id: user.id },
-          data: {
-            failedLoginAttempts: 0,
-            lockedUntil: null,
-            lastLoginAt: new Date()
-          }
-        });
+        if (isLocked(user, now)) {
+          logAuthEvent("LOGIN_LOCKED", {
+            role: user.role,
+            userId: user.id,
+            lockUntil: user.lockedUntil?.toISOString() ?? null
+          });
+          return null;
+        }
+
+        await resetSuccessfulLogin(user, now);
 
         return {
           id: user.id,
@@ -119,8 +207,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           where: {
             role: Role.ADMIN,
             isActive: true,
-            passwordHash: { not: null },
-            OR: [{ lockedUntil: null }, { lockedUntil: { lte: new Date() } }]
+            passwordHash: { not: null }
           },
           select: {
             id: true,
@@ -129,7 +216,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             role: true,
             officeId: true,
             passwordHash: true,
-            failedLoginAttempts: true
+            failedLoginAttempts: true,
+            lockedUntil: true
           }
         });
 
@@ -148,22 +236,33 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           }
         }
 
-        if (!matchedUsers.length) {
-          if (eligibleAdmins.length === 1) {
-            await handleFailedLogin(eligibleAdmins[0].id, eligibleAdmins[0].failedLoginAttempts);
+        if (matchedUsers.length !== 1) {
+          const now = new Date();
+          const unlockedCandidates = eligibleAdmins.filter((user) => !isLocked(user, now));
+          if (unlockedCandidates.length === 1) {
+            await recordFailedAttempt(unlockedCandidates[0], now, "admin-password-mismatch");
+          } else {
+            logAuthEvent("LOGIN_FAILED_UNTRACKED", {
+              role: Role.ADMIN,
+              reason: "no-single-user-attribution",
+              unlockedCandidateCount: unlockedCandidates.length
+            });
           }
           return null;
         }
         const user = matchedUsers[0];
+        const now = new Date();
 
-        await db.user.update({
-          where: { id: user.id },
-          data: {
-            failedLoginAttempts: 0,
-            lockedUntil: null,
-            lastLoginAt: new Date()
-          }
-        });
+        if (isLocked(user, now)) {
+          logAuthEvent("LOGIN_LOCKED", {
+            role: user.role,
+            userId: user.id,
+            lockUntil: user.lockedUntil?.toISOString() ?? null
+          });
+          return null;
+        }
+
+        await resetSuccessfulLogin(user, now);
 
         return {
           id: user.id,

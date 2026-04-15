@@ -341,9 +341,10 @@ export async function setMonthLockAction(month: number, year: number, isLocked: 
 
 export async function editSubmissionAction(rawInput: unknown) {
   const admin = await requireAdminSession();
-  const input = submissionEditSchema.parse(rawInput);
 
   try {
+    const input = submissionEditSchema.parse(rawInput);
+
     await editSubmission({
       ...input,
       updatedById: admin.id
@@ -369,6 +370,9 @@ export async function editSubmissionAction(rawInput: unknown) {
     return { success: true };
   } catch (error) {
     if (error instanceof SubmissionError) {
+      return { success: false, error: error.message };
+    }
+    if (error instanceof Error) {
       return { success: false, error: error.message };
     }
     return { success: false, error: "Failed to edit submission." };
